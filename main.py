@@ -168,7 +168,10 @@ def _process_event(event: keyboard.KeyboardEvent):
 
 def main():
     keyboard.hook(_process_event)
-    keyboard.wait()
+    try:
+        keyboard.wait()
+    except KeyboardInterrupt:
+        pass
 
 
 if __name__ == "__main__":
