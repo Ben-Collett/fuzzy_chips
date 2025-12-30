@@ -7,9 +7,12 @@ keyboard.patient_collision_safe_mode()
 _chip_map = get_chips.chip_map()
 _buffer = RingBuffer(100)
 
-punctuation_chars = [".", ",", "!", "?"]
+append_chars = [".", ",", "!", "?"]
+auto_append = False
+captlize_after = [".", "!", "?"]
 
 expected_counter = 0
+punct_expected_counter = 0
 
 
 def _toggle_capitlization(s: str):
@@ -72,15 +75,22 @@ meta_down = False
 
 def _process_event(event: keyboard.KeyboardEvent):
     global just_pressed_shift
-    global alt_down
-    global ctrl_down
-    global shift_down
-    global meta_down
+    global alt_down, ctrl_down, shift_down, alt_down, meta_down
     global _buffer
-    global _typing
-    global expected_counter
+    global expected_counter, punct_expected_counter, _typing
 
     name: str = event.name
+
+    if auto_append and name in append_chars:
+        leading_whitespace = _buffer.get_trailing_white_space()
+        if len(leading_whitespace) > 0:
+            _buffer.add(name)
+            _backspace(len(leading_whitespace)+1)
+            write(name)
+            write(leading_whitespace)
+            # + one for the name and the other
+            punct_expected_counter = len(leading_whitespace) + 2
+            return
     pressed_key = event.event_type == keyboard.KEY_DOWN
     released_key = not pressed_key
     is_shift = _is_shift(name)
@@ -124,7 +134,15 @@ def _process_event(event: keyboard.KeyboardEvent):
     if is_space and released_key and not shift_down and not _typing:
         process_chip = True
         white_space = _buffer.get_trailing_white_space()
+        prev_whitespace = _buffer.get_white_space_before_prev_word()
         word = _buffer.get_prev_word()
+
+        # append punctuation when spacing
+        if word in append_chars and punct_expected_counter == 0 and len(white_space) == 1:
+            punct_expected_counter = len(prev_whitespace) + len(word) + 1
+            _backspace(punct_expected_counter)
+            write(word+prev_whitespace)
+            return
         # I don't want to process as chip unless there was exactly one ' '
         if white_space != ' ':
             process_chip = False
@@ -133,7 +151,10 @@ def _process_event(event: keyboard.KeyboardEvent):
 
         if process_chip and char_frequency in _chip_map.keys():
             to_write = _chip_map[char_frequency]
-        if _buffer.should_captlize_prev_word():
+
+        should_capitalize = punct_expected_counter == 0 and _buffer.should_captlize_prev_word(
+            captilize_after=captlize_after)
+        if should_capitalize:
             if to_write == "":
                 to_write = word.capitalize()
             else:
@@ -163,15 +184,14 @@ def _process_event(event: keyboard.KeyboardEvent):
     if utf is not None and (utf.isprintable() or utf.isspace()):
         if expected_counter > 0:
             expected_counter -= 1
+        if punct_expected_counter > 0:
+            punct_expected_counter -= 1
         _buffer.add(utf)
 
 
 def main():
     keyboard.hook(_process_event)
-    try:
-        keyboard.wait()
-    except KeyboardInterrupt:
-        pass
+    keyboard.wait()
 
 
 if __name__ == "__main__":

@@ -17,6 +17,29 @@ class RingBuffer:
     def __str__(self):
         return str(self.buffer)
 
+    def get_white_space_before_prev_word(self) -> str:
+        chars = self.get()
+        if not chars:
+            return ""
+
+        i = len(chars) - 1
+
+        # 1. Skip trailing whitespace
+        while i >= 0 and chars[i].isspace():
+            i -= 1
+
+        # 2. Skip the previous word
+        while i >= 0 and not chars[i].isspace():
+            i -= 1
+
+        # 3. Collect whitespace before the word
+        end = i
+        while i >= 0 and chars[i].isspace():
+            i -= 1
+
+        start = i + 1
+        return ''.join(chars[start:end + 1])
+
     def get_trailing_white_space(self) -> str:
         chars: list[str] = self.get()
         if len(chars) == 0:
@@ -32,9 +55,8 @@ class RingBuffer:
 
         return ''.join(chars[lower:upper+1])
 
-    def should_captlize_prev_word(self) -> bool:
+    def should_captlize_prev_word(self, captilize_after=[]) -> bool:
         chars: list[str] = self.get()
-        captilize_after = [".", "!", "?"]
         target_range = RingBuffer._get_prev_word_range(chars)
         if target_range is None:
             return False
