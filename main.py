@@ -1,10 +1,10 @@
 import keyboard
-import get_chips
+from config import current_config
 from buffer import RingBuffer
 from frozen_dict import FrozenDict
 
 keyboard.patient_collision_safe_mode()
-_chip_map = get_chips.chip_map()
+_chip_map = current_config.chip_map
 _buffer = RingBuffer(100)
 
 append_chars = [".", ",", "!", "?"]
@@ -80,6 +80,7 @@ def _process_event(event: keyboard.KeyboardEvent):
     global expected_counter, punct_expected_counter, _typing
 
     name: str = event.name
+    # print(_buffer, name)
 
     if auto_append and name in append_chars:
         leading_whitespace = _buffer.get_trailing_white_space()
