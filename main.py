@@ -8,7 +8,7 @@ _chip_map = current_config.chip_map
 _buffer = RingBuffer(100)
 
 append_chars = [".", ",", "!", "?"]
-auto_append = False
+auto_append = True
 captlize_after = [".", "!", "?"]
 
 expected_counter = 0
@@ -80,7 +80,7 @@ def _process_event(event: keyboard.KeyboardEvent):
     global expected_counter, punct_expected_counter, _typing
 
     name: str = event.name
-    # print(_buffer, name)
+    print(_buffer, name)
 
     if auto_append and name in append_chars:
         leading_whitespace = _buffer.get_trailing_white_space()
@@ -135,23 +135,28 @@ def _process_event(event: keyboard.KeyboardEvent):
     if is_space and released_key and not shift_down and not _typing:
         process_chip = True
         white_space = _buffer.get_trailing_white_space()
+        print(white_space.replace(" ", "space"))
         prev_whitespace = _buffer.get_white_space_before_prev_word()
         word = _buffer.get_prev_word()
+        print("p1")
 
         # append punctuation when spacing
         if word in append_chars and punct_expected_counter == 0 and len(white_space) == 1:
             punct_expected_counter = len(prev_whitespace) + len(word) + 1
             _backspace(punct_expected_counter)
             write(word+prev_whitespace)
+            print("p2", _buffer)
             return
         # I don't want to process as chip unless there was exactly one ' '
         if white_space != ' ':
             process_chip = False
+            print("p3", _buffer)
         char_frequency = FrozenDict.from_string(word)
         to_write = ""
 
         if process_chip and char_frequency in _chip_map.keys():
             to_write = _chip_map[char_frequency]
+            print("p4")
 
         should_capitalize = punct_expected_counter == 0 and _buffer.should_captlize_prev_word(
             captilize_after=captlize_after)
