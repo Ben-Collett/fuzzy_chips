@@ -7,12 +7,11 @@ keyboard.patient_collision_safe_mode()
 _chip_map = current_config.chip_map
 _buffer = RingBuffer(100)
 
-append_chars = [".", ",", "!", "?"]
-auto_append = True
-captlize_after = [".", "!", "?"]
+append_chars = current_config.append_chars
+auto_append = current_config.auto_apped
+capitalize_after = current_config.capitalize_after
 
 expected_counter = 0
-punct_expected_counter = 0
 
 
 def _toggle_capitlization(s: str):
@@ -23,8 +22,12 @@ def _toggle_capitlization(s: str):
     return s[0].lower() + s[1:]
 
 
-def write(text: str):
-    keyboard.write(text)
+def write(text: str | list[str]):
+    if isinstance(text, str):
+        keyboard.write(text)
+    else:
+        for key in text:
+            keyboard.press_and_release(key)
 
 
 def _backspace(n_times):
@@ -60,12 +63,21 @@ def _toggle_prev():
     prev_word = _buffer.get_prev_word()
     white_space = _buffer.get_trailing_white_space()
     to_write = f'{_toggle_capitlization(prev_word)}{white_space}'
-    expected_counter = len(prev_word) + 2*len(white_space)
-    _backspace(len(prev_word)+len(white_space))
-    write(to_write)
+    print(prev_word, to_write)
+    backspace_count = len(prev_word)+len(white_space)
+    backspace_then_write(backspace_count, to_write, update_expected=True)
 
 
 just_pressed_shift: bool = False
+prev_real_event: keyboard.KeyboardEvent = None
+
+
+def _before_return_hook(event):
+    global expected_counter
+    global prev_real_event
+    if expected_counter == 0:
+        prev_real_event = event
+
 
 shift_down = False
 ctrl_down = False
@@ -73,26 +85,36 @@ alt_down = False
 meta_down = False
 
 
+def backspace_then_write(backspace_count, to_write, update_expected=True):
+    if update_expected:
+        global expected_counter
+        expected_counter = backspace_count + len(to_write)
+    _backspace(backspace_count)
+    write(to_write)
+
+
 def _process_event(event: keyboard.KeyboardEvent):
-    global just_pressed_shift
+    global prev_real_event
     global alt_down, ctrl_down, shift_down, alt_down, meta_down
     global _buffer
-    global expected_counter, punct_expected_counter, _typing
+    global expected_counter, _typing
 
     name: str = event.name
-    print(name)
-    print(_buffer)
-    print("------------------------------------------------")
+    # print(name)
+    # print(_buffer)
+    # print("------------------------------------------------")
 
+    print(_buffer)
     if auto_append and name in append_chars:
         leading_whitespace = _buffer.get_trailing_white_space()
         if len(leading_whitespace) > 0:
             _buffer.add(name)
-            _backspace(len(leading_whitespace)+1)
-            write(name)
-            write(leading_whitespace)
-            # + one for the name and the other
-            punct_expected_counter = len(leading_whitespace) + 2
+            backspace_count = len(leading_whitespace) + 1
+            to_write = name + leading_whitespace
+            backspace_then_write(backspace_count, to_write,
+                                 update_expected=True)
+
+            _before_return_hook(event)
             return
     pressed_key = event.event_type == keyboard.KEY_DOWN
     released_key = not pressed_key
@@ -104,18 +126,15 @@ def _process_event(event: keyboard.KeyboardEvent):
 
     if is_backspace and pressed_key:
         _buffer.backspace()
+        if expected_counter > 0:
+            expected_counter -= 1
+        _before_return_hook(event)
         return
 
     if is_shift and pressed_key:
         shift_down = True
-        just_pressed_shift = True
     elif is_shift and released_key:
         shift_down = False
-        if just_pressed_shift:
-            just_pressed_shift = False
-            _toggle_prev()
-    else:
-        just_pressed_shift = False
 
     if is_ctrl and pressed_key:
         ctrl_down = True
@@ -144,10 +163,12 @@ def _process_event(event: keyboard.KeyboardEvent):
         PUNCTUATION_PLUS_SPACE = 2
         at_start_of_buffer = len(_buffer) <= PUNCTUATION_PLUS_SPACE
         # append punctuation when spacing
-        if word in append_chars and punct_expected_counter == 0 and len(white_space) == 1 and not at_start_of_buffer:
-            punct_expected_counter = len(prev_whitespace) + len(word) + 1
-            _backspace(punct_expected_counter)
-            write(word+prev_whitespace)
+        if word in append_chars and len(white_space) == 1 and not at_start_of_buffer:
+            to_write = word + prev_whitespace
+            backspace_count = len(prev_whitespace) + len(word) + 1
+            backspace_then_write(backspace_count, to_write,
+                                 update_expected=True)
+            _before_return_hook(event)
             return
         # I don't want to process as chip unless there was exactly one ' '
         if white_space != ' ':
@@ -158,8 +179,9 @@ def _process_event(event: keyboard.KeyboardEvent):
         if process_chip and char_frequency in _chip_map.keys():
             to_write = _chip_map[char_frequency]
 
-        should_capitalize = punct_expected_counter == 0 and _buffer.should_captlize_prev_word(
-            captilize_after=captlize_after)
+        to_write_is_str = isinstance(to_write, str)
+        should_capitalize = _buffer.should_captlize_prev_word(
+            captilize_after=capitalize_after) and to_write_is_str
         if should_capitalize:
             if to_write == "":
                 to_write = word.capitalize()
@@ -168,24 +190,47 @@ def _process_event(event: keyboard.KeyboardEvent):
 
         if to_write != "" and to_write != word:
             overlapping_start = 0
-            for i in range(min(len(to_write), len(word))):
-                if to_write[i] != word[i]:
-                    break
-                overlapping_start += 1
+            if to_write_is_str:
+                for i in range(min(len(to_write), len(word))):
+                    if to_write[i] != word[i]:
+                        break
+                    overlapping_start += 1
 
             to_write = to_write[overlapping_start:]
-            _backspace(len(word)+1-overlapping_start)
-            expected_counter = len(to_write)+2
-            write(to_write)
-            write(" ")
+            to_backspace_count = len(word)+1-overlapping_start
+
+            # additional space if chip is a string
+            if to_write_is_str:
+                to_write += " "
+            backspace_then_write(to_backspace_count,
+                                 to_write, update_expected=True)
+
+            _before_return_hook(event)
             return
         # backspace space if not writing
         _buffer.backspace()
 
     if released_key:
+        name_equals_prev = prev_real_event and prev_real_event.name == name
+        manual_typing = expected_counter == 0
+        if name_equals_prev and name in current_config.toggle_case_on and manual_typing:
+            _toggle_prev()
+        _before_return_hook(event)
         return
-    if meta_down or _is_arrow(name):
+    clear_on = current_config.clear_buffer_on_keys
+    should_clear = name in clear_on
+
+    if "windows_down" in clear_on:
+        should_clear = should_clear or meta_down
+    if "alt_down" in clear_on:
+        should_clear = should_clear or alt_down
+    if "ctrl_down" in clear_on:
+        should_clear = should_clear or ctrl_down
+
+    if should_clear:
         _buffer.clear()
+
+        _before_return_hook(event)
         return
 
     utf: str = None
@@ -200,9 +245,8 @@ def _process_event(event: keyboard.KeyboardEvent):
     if utf is not None and (utf.isprintable() or utf.isspace()):
         if expected_counter > 0:
             expected_counter -= 1
-        if punct_expected_counter > 0:
-            punct_expected_counter -= 1
         _buffer.add(utf)
+    _before_return_hook(event)
 
 
 def main():
