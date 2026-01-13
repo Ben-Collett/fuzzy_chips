@@ -86,7 +86,7 @@ class RingBuffer:
             return None
         upper = len(chars) - 1
 
-        while chars[upper] == " ":
+        while chars[upper] == " " and upper > 0:
             upper -= 1
         if upper < 0 or chars[upper] == " ":
             return None
