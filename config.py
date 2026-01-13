@@ -35,6 +35,12 @@ def _chip_map(chips) -> dict[FrozenDict[str], str]:
 
 class Config:
     def __init__(self, config_map):
+        self.update(config_map)
+
+    def reload(self):
+        self.update(_load_toml())
+
+    def update(self, config_map):
         def get_general(name, default=None):
             if "general" in config_map and name in config_map["general"]:
                 return config_map["general"][name]

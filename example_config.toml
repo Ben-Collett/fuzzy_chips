@@ -1,70 +1,68 @@
-#NOTE: all general settings shown are set equal to their default behavior so if you want the described functionality you don't need  to override that key 
+# NOTE: all general settings shown are set equal to their default behavior so if you want the described functionality you don't need  to override that key
 
 [general]
 # will toggle the case of the previous or current word when you press and release shift without hitting any characters in between.
 "toggle_case_on" = ["shift"]
-
 # clear_buffer_on: clears the internal buffer of fuzzy chips when you press the windows key
-# left,right, up,down are all arrow keys and windows_down test if the windows/meta/gui key is down "alt_down", "ctrl_down" are also options do the same thing for their respective modifier, 
-
-# be mindful of however you keyremapper handles keyoverloading if you use one 
-# for example I use keyd and if I press right shift it will hold down alt if I release it without typing anything else it will type ? 
-
+# left,right, up,down are all arrow keys and windows_down test if the windows/meta/gui key is down "alt_down", "ctrl_down" are also options do the same thing for their respective modifier,
+# be mindful of however you keyremapper handles keyoverloading if you use one
+# for example I use keyd and if I press right shift it will hold down alt if I release it without typing anything else it will type ?
 # that means the buffer gets cleared and it would mess with append_chars if I had alt_down in my config to clear the buffer
 # Also keep in mind using clear_on_buffer will interfere with toggle_case_on if you put the same key in both
-"clear_buffer_on" = ["windows_down","ctrl_down","alt_down","left","right","up","down"]
-
+"clear_buffer_on" = [
+  "windows_down",
+  "ctrl_down",
+  "alt_down",
+  "left",
+  "right",
+  "up",
+  "down"
+]
 # append_chars have special behavior depending on the setting of auto_append
 # if true when pressing an append char it will be automatically appended to the previous word in the buffer and white space will be restored
 # if false then it won't append until you press space and will fail to do so if you press shift+space
 # you probably don't want to auto append when working with shells and programming
-"append_chars" = [".","!","?",",",";"]
+"append_chars" = [".", "!", "?", ",", ";"]
 "auto_append" = true
-
-#if the previous word ends with one of these characters then the current word will be capitalized once you hit space
-"capitalize_after" = [".","!","?"]
-
+# if the previous word ends with one of these characters then the current word will be capitalized once you hit space
+"capitalize_after" = [".", "!", "?"]
 
 # chips can be a list of keys or a string of characters, if its a list each element must be a valid key name
 # if it is a string then space will be automatically added at the end when triggering the chip this is not true for list in that case you must end with a space key if you want to space
 [chips]
 # examples using a list very nice for after you type something like th for that and then hitting 's to make that's
-"'s" = ["backspace","'","s", "space"]
-"n't" = ["backspace","n","'","t", "space"]
-"'l" = ["backspace","'","l","l", "space"]
-
-"t," = "this is dumb, but legal and useful for testing" # just keep in mind if you do this and you have auto append on and , set to append you better hit t before , 
-
+"'s" = ["backspace", "'", "s", "space"]
+"n't" = ["backspace", "n", "'", "t", "space"]
+"'l" = ["backspace", "'", "l", "l", "space"]
+"rl" = ["reload_config"]
+"qui" = ["quit"]
+# "'h" = ["hyphen-mode"]
+# "'u" = ["snake-mode"]
+"t," = "this is dumb, but legal and useful for testing"  # just keep in mind if you do this and you have auto append on and , set to append you better hit t before ,
 # you can use to to make typing a word order independent, example ta = at or toni = into
 "at" = "at"
 "it" = "it"
 "in" = "in"
-
 # I on it's own is always captlized(if your not doing coding/math)
 "i" = "I"
-
-
 # abbreviations for speed, they can even be a single letter!
 "d" = "and"
 "r" = "are"
 # or reuse letters
-"ppl"= "people"
-
+"ppl" = "people"
 # keep in mind since order doesn't matter you probably don't want to overried on to be on since it is the same as no
 "o" = "on"
 "n" = "no"
-‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐‐
-
 # ================== nothing new below this point just more examples ===============================
 "is" = "is"
 "of" = "of"
 "to" = "to"
 "so" = "so"
-"be"= "be"
+"be" = "be"
 "into" = "into"
 "do" = "do"
 "us" = "us"
-"an" = "an" 
+"an" = "an"
 "by" = "by"
 "up" = "up"
 "or" = "or"
@@ -76,18 +74,14 @@
 "as" = "as"
 "am" = "am"
 "my" = "my"
-
 "his" = "his"
 "now" = "now"
-
-
 "y" = "you"
 "f" = "for"
 "g" = "get"
 "c" = "can"
 "b" = "be"
 "t" = "the"
-
 "js" = "just"
 "nv" = "never"
 "th" = "that"
@@ -103,7 +97,7 @@
 "ty" = "they"
 "wn" = "when"
 "kw" = "know"
-"oe" ="one"
+"oe" = "one"
 "tr" = "there"
 "lk" = "like"
 "wi" = "will"
@@ -117,7 +111,7 @@
 "ou" = "out"
 "et" = "them"
 "ab" = "about"
-"mr" = "more" 
+"mr" = "more"
 "yo" = "you're"
 "hd" = "had"
 "ur" = "our"
@@ -128,22 +122,22 @@
 "se" = "see"
 "rw" = "were"
 "lv" = "live"
-"ov"  = "love"
-"jt"  = "than"
+"ov" = "love"
+"jt" = "than"
 "ei" = "their"
 "bj" = "because"
 "bk" = "back"
 "bl" = "black"
 "bh" = "behind"
 "bo" = "before"
-"tk"= "think"
+"tk" = "think"
 "mk" = "make"
-"en"= "then"
+"en" = "then"
 "sm" = "some"
 "sg" = "something"
 "bn" = "been"
 "ej" = "end"
-"ev" ="even"
+"ev" = "even"
 "wy" = "way"
 "hm" = "him"
 "cu" = "could"
@@ -152,9 +146,9 @@
 "oj" = "other"
 "aj" = "another"
 "ys" = "yes"
-"ye"  = "you're"
+"ye" = "you're"
 "yv" = "you've"
-"di"  = "did"
+"di" = "did"
 "wht" = "with"
 "wnt" = "want"
 "ghs" = "things"
@@ -164,4 +158,3 @@
 "frm" = "from"
 "dif" = "different"
 "w'" = "we're"
-

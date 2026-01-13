@@ -3,6 +3,19 @@ from config import current_config
 from buffer import RingBuffer
 from frozen_dict import FrozenDict
 from utils import backspaces_to_delete_previous_word
+from command_processor import CommandProcessor
+from commands import make_processor
+import threading
+
+stop_event = threading.Event()
+
+
+def _terminate(_):
+    stop_event.set()
+
+
+command_processor: CommandProcessor = make_processor()
+command_processor.register("quit", _terminate)
 
 
 def is_empty(iterable):
@@ -10,12 +23,8 @@ def is_empty(iterable):
 
 
 keyboard.patient_collision_safe_mode()
-_chip_map = current_config.chip_map
 _buffer = RingBuffer(100)
 
-append_chars = current_config.append_chars
-auto_append = current_config.auto_apped
-capitalize_after = current_config.capitalize_after
 
 expected_counter = 0
 
@@ -33,7 +42,10 @@ def write(text: str | list[str]):
         keyboard.write(text)
     else:
         for key in text:
-            keyboard.press_and_release(key)
+            if command_processor.has_command(key):
+                command_processor.process(key)
+            else:
+                keyboard.press_and_release(key)
 
 
 def _backspace(n_times):
@@ -84,7 +96,7 @@ def _before_return_hook(event):
         prev_real_event = event
 
 
-def determine_amount_to_backspace_shift_backspace(buffer: list[str], config=current_config):
+def determine_amount_to_backspace_shift_backspace(buffer: list[str]):
     return backspaces_to_delete_previous_word(buffer)
 
 
@@ -102,11 +114,16 @@ def backspace_then_write(backspace_count, to_write, update_expected=True):
     write(to_write)
 
 
-def _process_event(event: keyboard.KeyboardEvent):
+def _process_event(event: keyboard.KeyboardEvent, config=current_config):
     global prev_real_event
     global alt_down, ctrl_down, shift_down, alt_down, meta_down
     global _buffer
     global expected_counter, _typing
+
+    chip_map = config.chip_map
+    append_chars = config.append_chars
+    auto_append = config.auto_apped
+    capitalize_after = config.capitalize_after
 
     name: str = event.name
     # print(name)
@@ -192,8 +209,8 @@ def _process_event(event: keyboard.KeyboardEvent):
         char_frequency = FrozenDict.from_string(word)
         to_write = ""
 
-        if process_chip and char_frequency in _chip_map.keys():
-            to_write = _chip_map[char_frequency]
+        if process_chip and char_frequency in chip_map.keys():
+            to_write = chip_map[char_frequency]
 
         to_write_is_str = isinstance(to_write, str)
         should_capitalize = _buffer.should_captlize_prev_word(
@@ -267,7 +284,7 @@ def _process_event(event: keyboard.KeyboardEvent):
 
 def main():
     keyboard.hook(_process_event)
-    keyboard.wait()
+    stop_event.wait()
 
 
 if __name__ == "__main__":
