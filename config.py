@@ -51,9 +51,10 @@ class Config:
                                                 "windows_down", "alt_down", "ctrl_down", "left", "right", "up", "down"])
         self.shift_backspace_included_delimiters = get_general(
             # different kinds of dashes minus,  emdash, endash hyphen
-            "shift_backspace_included_delimiters", ["_", "-", "—", "−", "‐"])
+            "shift_backspace_included_delimiters", ["_", "-", "—", "−", "‐", "uppercase"])
         self.shift_backspace_excluded_delimiters = get_general(
             "shift_backspace_excluded_delimiters", [" "])
+        self.separate_tail = get_general("separate_tail", ["uppercase"])
 
 
 current_config = Config(_load_toml())

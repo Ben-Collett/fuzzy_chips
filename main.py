@@ -2,6 +2,7 @@ import keyboard
 from config import current_config
 from buffer import RingBuffer
 from frozen_dict import FrozenDict
+from utils import backspaces_to_delete_previous_word
 
 
 def is_empty(iterable):
@@ -83,32 +84,8 @@ def _before_return_hook(event):
         prev_real_event = event
 
 
-def determine_amount_to_backspace_shift_backspace(buffer: list[str]):
-    removed_trailing = False
-
-    included = current_config.shift_backspace_included_delimiters
-    excluded = current_config.shift_backspace_excluded_delimiters
-
-    combined = [*excluded, *included]
-    if not is_empty(buffer):
-        removed_trailing = buffer[-1] not in combined
-
-    # NOTE to self consider the differences in unicode characters when debugging
-    # like different kinds of dashes that look the same
-    # print([hex(ord(ch)) for ch in combined])
-
-    for i, val in enumerate(buffer[::-1]):
-        if not removed_trailing and val not in combined:
-            removed_trailing = True
-
-        # we subtract 1 from amount to remove to account for the already removed element in the buffer
-        if removed_trailing and val in included:
-            return i
-
-        if removed_trailing and val in current_config.shift_backspace_excluded_delimiters:
-            return i - 1
-
-    return len(buffer)
+def determine_amount_to_backspace_shift_backspace(buffer: list[str], config=current_config):
+    return backspaces_to_delete_previous_word(buffer)
 
 
 shift_down = False
