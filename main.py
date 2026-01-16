@@ -2,7 +2,7 @@ import keyboard
 from config import current_config
 from buffer import RingBuffer
 from frozen_dict import FrozenDict
-from utils import backspaces_to_delete_previous_word
+from utils import backspaces_to_delete_previous_word, shift_press_release
 from command_processor import CommandProcessor
 from commands import make_processor
 import threading
@@ -268,7 +268,10 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
         name_equals_prev = prev_real_event and prev_real_event.name == name
         manual_typing = expected_counter == 0
         if name_equals_prev and name in current_config.toggle_case_on and manual_typing:
-            _toggle_prev()
+            back_count, to_write = shift_press_release(_buffer.get())
+            backspace_then_write(back_count, to_write,
+                                 update_expected=True)
+            # _toggle_prev()
         _before_return_hook(event)
         return
     clear_on = current_config.clear_buffer_on_keys
