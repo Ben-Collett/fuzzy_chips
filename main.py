@@ -12,12 +12,17 @@ import os
 stop_event = threading.Event()
 
 
-def _terminate(_):
+def _terminate(*args):
+    print("terminating...")
     stop_event.set()
 
 
 expected_counter = 0
 _buffer = RingBuffer(100)
+
+
+def clear_buffer(*args):
+    _buffer.clear()
 
 
 def is_empty(iterable):
@@ -74,15 +79,6 @@ def _is_meta(name: str):
     return "windows" in name.lower()
 
 
-def _toggle_prev():
-    global expected_counter
-    prev_word = _buffer.get_prev_word()
-    white_space = _buffer.get_trailing_white_space()
-    to_write = f'{_toggle_capitlization(prev_word)}{white_space}'
-    backspace_count = len(prev_word)+len(white_space)
-    backspace_then_write(backspace_count, to_write, update_expected=True)
-
-
 just_pressed_shift: bool = False
 prev_real_event: keyboard.KeyboardEvent = None
 
@@ -104,12 +100,47 @@ alt_down = False
 meta_down = False
 
 
+def upper_case(*args):
+    pass
+
+
+def lower_case(*args):
+    pass
+
+
+def all_caps(*args):
+    pass
+
+
+def _is_not_a_command(command: str):
+    return not command_processor.has_command(command)
+
+
+def count_where(pred, iterable):
+    count = 0
+    for element in iterable:
+        if pred(element):
+            count += 1
+    return count
+
+
+def _non_command_count(to_write: list[str]):
+    return count_where(_is_not_a_command, to_write)
+
+
 def backspace_then_write(backspace_count, to_write, update_expected=True):
     if update_expected:
         global expected_counter
-        expected_counter = backspace_count + len(to_write)
+        if isinstance(to_write, list):
+            expected_counter = backspace_count + _non_command_count(to_write)
+        else:
+            expected_counter = backspace_count + len(to_write)
     _backspace(backspace_count)
     write(to_write)
+
+
+def prev_word_toggle_prev(*args):
+    print(expected_counter)
 
 
 def restart(_):
@@ -117,16 +148,30 @@ def restart(_):
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
+def delete_previous_word(* args):
+    global expected_counter
+    buffer = _buffer.get()
+    print(buffer)
+    _buffer.backspace()
+
+    expected_counter = determine_amount_to_backspace_shift_backspace(
+        buffer)
+
+    _backspace(expected_counter)
+
+
 # command processor logic
 command_processor: CommandProcessor = make_processor()
 command_processor.register("quit", _terminate)
 command_processor.register("restart", restart)
+command_processor.register("clear_buffer", clear_buffer)
 
 # effects previous word
-command_processor.register("toggle_case", _terminate)
-command_processor.register("upper_case", _terminate)
-command_processor.register("lower_case", _terminate)
-command_processor.register("all_caps", _terminate)
+command_processor.register("prev_word_toggle_case", prev_word_toggle_prev)
+command_processor.register("prev_word_upper_case", _terminate)
+command_processor.register("prev_word_lower_case", _terminate)
+command_processor.register("full_prev_word_all_caps", _terminate)
+command_processor.register("full_prev_word_all_lower", _terminate)
 
 # effects what happens when you press space
 command_processor.register("snake_mode", _terminate)
@@ -140,6 +185,7 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
     global alt_down, ctrl_down, shift_down, alt_down, meta_down
     global _buffer
     global expected_counter, _typing
+    print(expected_counter)
 
     chip_map = config.chip_map
     append_chars = config.append_chars
@@ -171,14 +217,9 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
     is_backspace = name == "backspace"
 
     if shift_down and is_backspace and pressed_key and expected_counter == 0:
-        buffer = _buffer.get()
-        _buffer.backspace()
-
-        expected_counter = determine_amount_to_backspace_shift_backspace(
-            buffer)
-
-        _backspace(expected_counter)
-
+        delete_previous_word()
+        _before_return_hook(event)
+        return
     elif is_backspace and pressed_key:
         _buffer.backspace()
         if expected_counter > 0:
@@ -186,6 +227,7 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
         _before_return_hook(event)
         return
 
+    # update modifiers
     if is_shift and pressed_key:
         shift_down = True
     elif is_shift and released_key:
@@ -286,7 +328,7 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
         should_clear = should_clear or ctrl_down
 
     if should_clear:
-        _buffer.clear()
+        clear_buffer()
 
         _before_return_hook(event)
         return

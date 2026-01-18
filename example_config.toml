@@ -40,6 +40,12 @@
 "rl" = ["reload_config"]
 "qui" = ["quit"]
 "ras" = ["restart"]
+"cl" = ["clear_buffer"]
+"tpw" = [
+  "prev_word_toggle_case",
+  "prev_word_toggle_case",
+  "prev_word_toggle_case"
+]
 # "'h" = ["hyphen-mode"]
 # "'u" = ["snake-mode"]
 "t," = "this is dumb, but legal and useful for testing"  # just keep in mind if you do this and you have auto append on and , set to append you better hit t before ,
