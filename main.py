@@ -145,6 +145,7 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
     append_chars = config.append_chars
     auto_append = config.auto_apped
     capitalize_after = config.capitalize_after
+    captlize_passthrough = config.capitalize_passthrough
 
     name: str = event.name
     # print(name)
@@ -235,7 +236,7 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
 
         to_write_is_str = isinstance(to_write, str)
         should_capitalize = _buffer.should_captlize_prev_word(
-            captilize_after=capitalize_after) and to_write_is_str
+            captilize_after=capitalize_after, pass_through=captlize_passthrough) and to_write_is_str
         if should_capitalize:
             if to_write == "":
                 to_write = word.capitalize()

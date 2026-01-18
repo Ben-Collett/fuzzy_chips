@@ -57,7 +57,7 @@ class RingBuffer:
 
         return ''.join(chars[lower:upper+1])
 
-    def should_captlize_prev_word(self, captilize_after=[]) -> bool:
+    def should_captlize_prev_word(self, captilize_after=[], pass_through=[]) -> bool:
         chars: list[str] = self.get()
         target_range = RingBuffer._get_prev_word_range(chars)
         if target_range is None:
@@ -67,7 +67,7 @@ class RingBuffer:
             return False
         lower -= 1
         while lower > 0:
-            if not chars[lower].isspace():
+            if not chars[lower].isspace() and chars[lower] not in pass_through:
                 break
             lower -= 1
         return chars[lower] in captilize_after

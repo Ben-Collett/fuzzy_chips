@@ -36,7 +36,7 @@ def shift_press_release(buffer: list[str]) -> (int, str):
     while i >= 0 and buffer[i] != " ":
         if buffer[i] == "_":
             toggle_whole_word = True
-        elif not buffer[i].isalnum():
+        elif not alpha_numericish(buffer[i]):
             break
 
         backspace_count += 1

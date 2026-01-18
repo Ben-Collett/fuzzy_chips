@@ -51,6 +51,8 @@ class Config:
             "append_chars", [".", ",", "!", "?", ";"])
         self.capitalize_after = get_general(
             "capitalize_after", [".", "!", "?"])
+        self.capitalize_passthrough = get_general(
+            "captlize_passthrough", ["'", '"', "`"])
         self.auto_apped = get_general("auto_append", True)
         self.toggle_case_on = get_general("toggle_case_on", ["shift"])
         self.clear_buffer_on_keys = get_general("clear_buffer_on", [
