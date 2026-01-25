@@ -41,6 +41,7 @@
 "qui" = ["quit"]
 "ras" = ["restart"]
 "cl" = ["clear_buffer"]
+"-" = ["backspace", "-", "active_hyphen_mode"]
 "tpw" = [
   "prev_word_toggle_case",
   "prev_word_toggle_case",

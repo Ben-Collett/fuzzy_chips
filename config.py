@@ -11,12 +11,15 @@ def _load_toml() -> dict:
         path = CONFIG_FILE_NAME
     else:
         path = config_manager.find_config_file(CONFIG_FILE_NAME)
+
     if not os.path.exists(path):
         print("no config found")
         return {"chips": {}}
 
     with open(path, "rb") as file:
         data = tomllib.load(file)
+    if "chips" not in data:
+        data["chips"] = {}
     return data
 
 

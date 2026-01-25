@@ -151,7 +151,6 @@ def restart(_):
 def delete_previous_word(* args):
     global expected_counter
     buffer = _buffer.get()
-    print(buffer)
     _buffer.backspace()
 
     expected_counter = determine_amount_to_backspace_shift_backspace(
@@ -181,11 +180,12 @@ command_processor.register("upper_snake", _terminate)
 
 
 def _process_event(event: keyboard.KeyboardEvent, config=current_config):
+    print("hi")
     global prev_real_event
     global alt_down, ctrl_down, shift_down, alt_down, meta_down
     global _buffer
     global expected_counter, _typing
-    print(expected_counter)
+    # print(event.name, event.modifiers)
 
     chip_map = config.chip_map
     append_chars = config.append_chars
@@ -195,7 +195,7 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
 
     name: str = event.name
     # print(name)
-    # print(_buffer)
+    print(_buffer)
     # print("------------------------------------------------")
     if auto_append and name in append_chars:
         leading_whitespace = _buffer.get_trailing_white_space()
