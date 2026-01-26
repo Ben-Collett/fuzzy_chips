@@ -1,4 +1,42 @@
 from collections import deque
+from keyboard import KeyboardEvent, KEY_DOWN
+from modifiers import SHIFT, CTRL, ALT, WINDOWS
+
+
+def down_modifiers(event: KeyboardEvent):
+    modifiers = event.modifiers
+    out = set()
+
+    def add_if_needed(mod):
+        if SHIFT in mod:
+            out.add(SHIFT)
+        elif CTRL in mod:
+            out.add(CTRL)
+        elif ALT in mod:
+            out.add(ALT)
+        elif WINDOWS in mod:
+            out.add(WINDOWS)
+
+    # if the caller presses shift it will report the name of shift but the
+    # current modifier state of shift won't be down
+    if event.event_type == KEY_DOWN:
+        add_if_needed(event.name)
+
+    for modifier in modifiers:
+        add_if_needed(modifier)
+
+    return out
+
+
+def to_utf(event: KeyboardEvent, shift_down):
+    name = event.name
+    if len(name) == 1:
+        if shift_down:
+            return name.upper()
+        else:
+            return name
+    elif name == "space":
+        return " "
 
 
 def alpha_numericish(ch: str):

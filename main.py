@@ -3,13 +3,31 @@ from config import current_config
 from buffer import RingBuffer
 from frozen_dict import FrozenDict
 from utils import backspaces_to_delete_previous_word, shift_press_release
+from utils import down_modifiers, to_utf
 from command_processor import CommandProcessor
 from commands import make_processor
+from collection_utils import count_where, captlize
+from casing import Casing
 import threading
 import sys
 import os
+from modifiers import SHIFT, CTRL, ALT, WINDOWS
+
+keyboard.init(
+    linux_collision_safety_mode=keyboard.LinuxCollisionSafetyModes.PATIENT)
 
 stop_event = threading.Event()
+current_casing = Casing.NORMAL
+expected_counter = 0
+_buffer = RingBuffer(100)
+
+
+def normal_casing():
+    return current_casing == Casing.NORMAL
+
+
+def kebab_casing():
+    return current_casing == Casing.KEBAB
 
 
 def _terminate(*args):
@@ -17,27 +35,8 @@ def _terminate(*args):
     stop_event.set()
 
 
-expected_counter = 0
-_buffer = RingBuffer(100)
-
-
 def clear_buffer(*args):
     _buffer.clear()
-
-
-def is_empty(iterable):
-    return len(iterable) == 0
-
-
-keyboard.patient_collision_safe_mode()
-
-
-def _toggle_capitlization(s: str):
-    if len(s) == 0:
-        return ""
-    if s[0].islower():
-        return s[0].upper() + s[1:]
-    return s[0].lower() + s[1:]
 
 
 def write(text: str | list[str]):
@@ -83,45 +82,12 @@ just_pressed_shift: bool = False
 prev_real_event: keyboard.KeyboardEvent = None
 
 
-def _before_return_hook(event):
-    global expected_counter
-    global prev_real_event
-    if expected_counter == 0:
-        prev_real_event = event
-
-
 def determine_amount_to_backspace_shift_backspace(buffer: list[str]):
     return backspaces_to_delete_previous_word(buffer)
 
 
-shift_down = False
-ctrl_down = False
-alt_down = False
-meta_down = False
-
-
-def upper_case(*args):
-    pass
-
-
-def lower_case(*args):
-    pass
-
-
-def all_caps(*args):
-    pass
-
-
 def _is_not_a_command(command: str):
     return not command_processor.has_command(command)
-
-
-def count_where(pred, iterable):
-    count = 0
-    for element in iterable:
-        if pred(element):
-            count += 1
-    return count
 
 
 def _non_command_count(to_write: list[str]):
@@ -159,6 +125,15 @@ def delete_previous_word(* args):
     _backspace(expected_counter)
 
 
+def toggle_casing(casing):
+    global current_casing
+    current_casing = Casing.NORMAL if current_casing == casing else casing
+
+
+def toggle_kebab_case(*args):
+    toggle_casing(Casing.KEBAB)
+
+
 # command processor logic
 command_processor: CommandProcessor = make_processor()
 command_processor.register("quit", _terminate)
@@ -172,31 +147,18 @@ command_processor.register("prev_word_lower_case", _terminate)
 command_processor.register("full_prev_word_all_caps", _terminate)
 command_processor.register("full_prev_word_all_lower", _terminate)
 
-# effects what happens when you press space
+# casing
+command_processor.register("toggle-kebab-case", toggle_kebab_case)
 command_processor.register("snake_mode", _terminate)
 command_processor.register("proper_mode", _terminate)
 command_processor.register("cammel_mode", _terminate)
 command_processor.register("upper_snake", _terminate)
 
 
-def _process_event(event: keyboard.KeyboardEvent, config=current_config):
-    print("hi")
-    global prev_real_event
-    global alt_down, ctrl_down, shift_down, alt_down, meta_down
-    global _buffer
-    global expected_counter, _typing
-    # print(event.name, event.modifiers)
-
-    chip_map = config.chip_map
-    append_chars = config.append_chars
+def handle_auto_append(event, config):
+    name = event.name
     auto_append = config.auto_apped
-    capitalize_after = config.capitalize_after
-    captlize_passthrough = config.capitalize_passthrough
-
-    name: str = event.name
-    # print(name)
-    print(_buffer)
-    # print("------------------------------------------------")
+    append_chars = config.append_chars
     if auto_append and name in append_chars:
         leading_whitespace = _buffer.get_trailing_white_space()
         if len(leading_whitespace) > 0:
@@ -206,117 +168,40 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
             backspace_then_write(backspace_count, to_write,
                                  update_expected=True)
 
-            _before_return_hook(event)
-            return
-    pressed_key = event.event_type == keyboard.KEY_DOWN
-    released_key = not pressed_key
-    is_shift = _is_shift(name)
-    is_ctrl = _is_ctrl(name)
-    is_meta = _is_meta(name)
-    is_alt = _is_alt(name)
-    is_backspace = name == "backspace"
+            return True
+    return False
 
+
+def handle_if_release_event(event: keyboard.KeyboardEvent, toggle_case_on):
+    released_key = event.event_type == keyboard.KEY_UP
+    name = event.name
+    if released_key:
+        name_equals_prev = prev_real_event and prev_real_event.name == name
+        manual_typing = expected_counter == 0
+        if name_equals_prev and name in toggle_case_on and manual_typing:
+            back_count, to_write = shift_press_release(_buffer.get())
+            backspace_then_write(back_count, to_write,
+                                 update_expected=True)
+        return True
+    return False
+
+
+def handle_backspace(event, shift_down):
+    global expected_counter
+    is_backspace = event.name == "backspace"
+    pressed_key = event.event_type == keyboard.KEY_DOWN
     if shift_down and is_backspace and pressed_key and expected_counter == 0:
         delete_previous_word()
-        _before_return_hook(event)
-        return
+        return True
     elif is_backspace and pressed_key:
         _buffer.backspace()
         if expected_counter > 0:
             expected_counter -= 1
-        _before_return_hook(event)
-        return
+        return True
+    return False
 
-    # update modifiers
-    if is_shift and pressed_key:
-        shift_down = True
-    elif is_shift and released_key:
-        shift_down = False
 
-    if is_ctrl and pressed_key:
-        ctrl_down = True
-    elif is_ctrl and released_key:
-        ctrl_down = False
-
-    if is_alt and pressed_key:
-        alt_down = True
-    elif is_alt and released_key:
-        alt_down = False
-
-    if is_meta and pressed_key:
-        meta_down = True
-    elif is_meta and released_key:
-        meta_down = False
-
-    is_space = name == "space"
-    _typing = expected_counter > 0
-    if is_space and pressed_key and not shift_down and not _typing:
-        process_chip = True
-        _buffer.add(' ')
-        white_space = _buffer.get_trailing_white_space()
-        prev_whitespace = _buffer.get_white_space_before_prev_word()
-        word = _buffer.get_prev_word()
-
-        PUNCTUATION_PLUS_SPACE = 2
-        at_start_of_buffer = len(_buffer) <= PUNCTUATION_PLUS_SPACE
-        # append punctuation when spacing
-        if word in append_chars and len(white_space) == 1 and not at_start_of_buffer:
-            to_write = word + prev_whitespace
-            backspace_count = len(prev_whitespace) + len(word) + 1
-            backspace_then_write(backspace_count, to_write,
-                                 update_expected=True)
-            _before_return_hook(event)
-            return
-        # I don't want to process as chip unless there was exactly one ' '
-        if white_space != ' ':
-            process_chip = False
-        char_frequency = FrozenDict.from_string(word)
-        to_write = ""
-
-        if process_chip and char_frequency in chip_map.keys():
-            to_write = chip_map[char_frequency]
-
-        to_write_is_str = isinstance(to_write, str)
-        should_capitalize = _buffer.should_captlize_prev_word(
-            captilize_after=capitalize_after, pass_through=captlize_passthrough) and to_write_is_str
-        if should_capitalize:
-            if to_write == "":
-                to_write = word.capitalize()
-            else:
-                to_write = to_write.capitalize()
-
-        if to_write != "" and to_write != word:
-            overlapping_start = 0
-            if to_write_is_str:
-                for i in range(min(len(to_write), len(word))):
-                    if to_write[i] != word[i]:
-                        break
-                    overlapping_start += 1
-
-            to_write = to_write[overlapping_start:]
-            to_backspace_count = len(word)+1-overlapping_start
-
-            # additional space if chip is a string
-            if to_write_is_str:
-                to_write += " "
-            backspace_then_write(to_backspace_count,
-                                 to_write, update_expected=True)
-
-            _before_return_hook(event)
-            return
-        # backspace space if not writing
-        _buffer.backspace()
-
-    if released_key:
-        name_equals_prev = prev_real_event and prev_real_event.name == name
-        manual_typing = expected_counter == 0
-        if name_equals_prev and name in current_config.toggle_case_on and manual_typing:
-            back_count, to_write = shift_press_release(_buffer.get())
-            backspace_then_write(back_count, to_write,
-                                 update_expected=True)
-            # _toggle_prev()
-        _before_return_hook(event)
-        return
+def handle_clear(name, config, meta_down, ctrl_down, alt_down):
     clear_on = current_config.clear_buffer_on_keys
     should_clear = name in clear_on
 
@@ -329,28 +214,148 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
 
     if should_clear:
         clear_buffer()
+        return True
+    return False
 
-        _before_return_hook(event)
-        return
 
-    utf: str = None
-    if len(name) == 1:
-        if shift_down:
-            utf = name.upper()
-        else:
-            utf = name
-    elif name == "space":
-        utf = " "
-
+def add_utf_and_update_expected(utf: str):
+    global expected_counter
     if utf is not None and (utf.isprintable() or utf.isspace()):
         if expected_counter > 0:
             expected_counter -= 1
         _buffer.add(utf)
-    _before_return_hook(event)
+
+
+def handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
+    PUNCTUATION_PLUS_SPACE = 2
+    at_start_of_buffer = len(_buffer) <= PUNCTUATION_PLUS_SPACE
+    # append punctuation when spacing
+    if word in append_chars and len(white_space) == 1 and not at_start_of_buffer:
+        to_write = word + prev_whitespace
+        backspace_count = len(prev_whitespace) + len(word) + 1
+        backspace_then_write(backspace_count, to_write,
+                             update_expected=True)
+        return True
+    return False
+
+
+def captlize_if_needed(to_write, to_write_is_str, config):
+    capitalize_after = config.capitalize_after
+    captlize_passthrough = config.capitalize_passthrough
+
+    should_capitalize = _buffer.should_captlize_prev_word(
+        captilize_after=capitalize_after, pass_through=captlize_passthrough) and to_write_is_str
+    if should_capitalize:
+        return captlize(to_write)
+    return to_write
+
+
+def start_overlap_length(s1: str, s2: str):
+    length = 0
+    short_length = min(len(s1), len(s2))
+    for i in range(0, short_length):
+        if s1[i] != s2[i]:
+            break
+        length += 1
+    return length
+
+
+def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
+    global expected_counter
+    chip_map = config.chip_map
+    append_chars = config.append_chars
+    is_space = event.name == "space"
+    pressed_key = event.event_type == keyboard.KEY_DOWN
+    typing = expected_counter > 0
+
+    if is_space and pressed_key and not shift_down and not typing:
+        process_chip = True
+        _buffer.add(' ')
+        prev_whitespace = _buffer.get_white_space_before_prev_word()
+        white_space = _buffer.get_trailing_white_space()
+        word = _buffer.get_prev_word()
+
+        if handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
+            return True
+
+        # only wan to expan chip if there is only 1 ' '
+        if len(white_space) > 1:
+            return process_chip
+
+        char_frequency = FrozenDict.from_string(word)
+        to_write = ""
+
+        if process_chip and char_frequency in chip_map.keys():
+            to_write = chip_map[char_frequency]
+        else:
+            to_write = word
+
+        to_write_is_str = isinstance(to_write, str)
+        to_write = captlize_if_needed(to_write,  to_write_is_str, config)
+
+        if to_write != "" and to_write != word:
+            overlapping_start = start_overlap_length(
+                to_write, word) if to_write_is_str else 0
+
+            to_write = to_write[overlapping_start:]
+            to_backspace_count = len(word)+1-overlapping_start
+
+            if to_write_is_str:
+                to_write += " "
+            backspace_then_write(to_backspace_count,
+                                 to_write, update_expected=True)
+
+            return True
+        # backspace space if not writing
+        _buffer.backspace()
+    return False
+
+
+def _process_event(event: keyboard.KeyboardEvent, config=current_config):
+    global prev_real_event
+    global _buffer
+    global expected_counter, typing
+
+    if handle_auto_append(event, config):
+        return
+
+    # print(event.name)
+    # print(_buffer)
+    # print("------------------------------------------------")
+
+    # handle_auto_append, returns true if should early return
+
+    down_mods = down_modifiers(event)
+    shift_down = SHIFT in down_mods
+    alt_down = ALT in down_mods
+    meta_down = WINDOWS in down_mods
+    ctrl_down = CTRL in down_mods
+
+    if handle_clear(event.name, config, meta_down, ctrl_down, alt_down):
+        return
+
+    if handle_backspace(event, shift_down):
+        return
+
+    if handle_if_release_event(event, config.toggle_case_on):
+        return
+
+    if handle_space(event, shift_down, config):
+        return
+
+    utf: str = to_utf(event, shift_down)
+    add_utf_and_update_expected(utf)
+
+
+def process_event_wrapper(event):
+    global prev_real_event
+    _process_event(event)
+    if expected_counter == 0:
+        prev_real_event = event
 
 
 def main():
-    keyboard.hook(_process_event)
+    keyboard.hook(process_event_wrapper)
     try:
         stop_event.wait()
     except KeyboardInterrupt:

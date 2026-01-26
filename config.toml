@@ -41,7 +41,12 @@
 "qui" = ["quit"]
 "ras" = ["restart"]
 "cl" = ["clear_buffer"]
-"-" = ["backspace", "-", "active_hyphen_mode"]
+# set sep allows us to set a separator or a case like
+"ka" = ["toggle-kebab-case"]
+"_" = ["toggle_snake_case"]
+"__" = ["TOGGLE_UPPER_SNAKE_CASE"]
+"cm" = ["toggleCamelCase"]
+"pm" = ["ToggleProperCase"]
 "tpw" = [
   "prev_word_toggle_case",
   "prev_word_toggle_case",
