@@ -92,13 +92,16 @@ def convert_casing(to_write, word, prev_word, prev_whitespace, casing: Casing):
                 prepended = 1
         case Casing.PROPER:
             to_write = captlize(to_write)
-            if should_prepend:
+            # sometimes _ can denote being private
+            if should_prepend or prev_word == "_":
                 prepended = 1
         case Casing.CAMEL:
             to_write = "".join(map(captlize, to_write.split()))
             if period_end or open_end or not should_prepend:
                 to_write = uncaptlize(to_write)
-            if should_prepend:
+
+            # sometimes _ can denote being private
+            if should_prepend or prev_word == "_":
                 prepended = 1
 
     return to_write, prepended, overlapping_start

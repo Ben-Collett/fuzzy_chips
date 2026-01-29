@@ -52,14 +52,21 @@ def alpha_numericish(ch: str):
 
 
 """
-hot_dog=cat_pig if we hit _ stop and next special character or " ", swap case of whatever came before all upp or all down
 this is cool -> nothing special captlize prev word or current word
+EX: this is cool -> this is Cool
 this-is-cool -> stop when you hit a nonspecial non _ character and captlize thefirst letter of that word(last thing in stack)
+EX: this-is-cool-> this-is-Cool
 hat=dog, captlize dog because non-alpha sperator rule same with hat+dog
+EX: hot=dog -> hot=Dog
 thisIsCool -> same rulse as normal case and separator should cover this case aswell
+EX: thisIsCool -> ThisIsCool
+hot_dog-> if we hit _ stop and next special character or " ", swap case of whatever came before all upp or all down
+with the exception of a starting _ so that things like dart private scope works nicely.
+EX: hot_dog -> HOT_DOG -> hot_dog, _randomDog -> _RandomDog->_randomDog, _hot_dog -> _HOT_DOG
 
 if it is split on a - or + or something toggle only the last word
 simple rule, get last word if it contains _ as first alpha numeric toggle the whole word
+unless it is just at the start
 if there is only one word or it's just a space or camel toggle the case of the first letter
 """
 
@@ -79,8 +86,9 @@ def shift_press_release(buffer: list[str]) -> (int, str):
         i -= 1
 
     toggle_whole_word = False
+    print(buffer)
     while i >= 0 and buffer[i] != " ":
-        if buffer[i] == "_":
+        if buffer[i] == "_" and i >= 1 and buffer[i-1] != " ":
             toggle_whole_word = True
         elif not alpha_numericish(buffer[i]):
             break
