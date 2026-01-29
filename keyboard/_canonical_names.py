@@ -782,7 +782,7 @@ canonical_names = {
     "MillSign": "₥",
     "minplus": "+",
     "minus": "-",
-    "minus": "−",
+    # "minus": "−",
     "minute": "′",
     "Msmall": "",
     "msuperior": "",

@@ -17,6 +17,70 @@ class RingBuffer:
     def __str__(self):
         return str(self.buffer)
 
+    def get_word_count(self) -> int:
+        """
+        Return the total number of words in the buffer.
+        A word is defined as a sequence of non-whitespace characters.
+        """
+        chars = self.get()
+        if not chars:
+            return 0
+
+        count = 0
+        in_word = False
+
+        for c in chars:
+            if c.isspace():
+                in_word = False
+            else:
+                if not in_word:
+                    count += 1
+                    in_word = True
+
+        return count
+
+    def get_word(self, index: int) -> str:
+        """
+        Get the word at the given index.
+        Supports negative indexing (-1 = last word).
+        Returns an empty string if index is out of range.
+        """
+        chars = self.get()
+        if not chars:
+            return ""
+
+        words: list[tuple[int, int]] = []
+        i = 0
+        n = len(chars)
+
+        while i < n:
+            # Skip whitespace
+            while i < n and chars[i].isspace():
+                i += 1
+            if i >= n:
+                break
+
+            start = i
+            # Consume word
+            while i < n and not chars[i].isspace():
+                i += 1
+            end = i - 1
+
+            words.append((start, end))
+
+        if not words:
+            return ""
+
+        # Handle negative indexing
+        if index < 0:
+            index += len(words)
+
+        if index < 0 or index >= len(words):
+            return ""
+
+        start, end = words[index]
+        return ''.join(chars[start:end + 1])
+
     def get_white_space_before_prev_word(self) -> str:
         chars = self.get()
         if not chars:
@@ -73,12 +137,13 @@ class RingBuffer:
         return chars[lower] in captilize_after
 
     def get_prev_word(self) -> str:
-        chars = self.get()
-        target = RingBuffer._get_prev_word_range(chars)
-        if target is None:
-            return ""
-        lower, upper = target
-        return ''.join(chars[lower:upper+1])
+        return self.get_word(-1)
+        # chars = self.get()
+        # target = RingBuffer._get_prev_word_range(chars)
+        # if target is None:
+        #     return ""
+        # lower, upper = target
+        # return ''.join(chars[lower:upper+1])
 
     @staticmethod
     def _get_prev_word_range(chars: list[str]):

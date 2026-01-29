@@ -6,8 +6,8 @@ from utils import backspaces_to_delete_previous_word, shift_press_release
 from utils import down_modifiers, to_utf
 from command_processor import CommandProcessor
 from commands import make_processor
-from collection_utils import count_where, captlize
-from casing import Casing
+from collection_utils import count_where, captlize, is_not_empty_str
+from casing import Casing, convert_casing
 import threading
 import sys
 import os
@@ -22,12 +22,33 @@ expected_counter = 0
 _buffer = RingBuffer(100)
 
 
-def normal_casing():
+def activate_casing(casing):
+    global current_casing
+    current_casing = casing
+
+
+def using_normal_casing():
     return current_casing == Casing.NORMAL
 
 
-def kebab_casing():
+def using_kebab_casing():
     return current_casing == Casing.KEBAB
+
+
+def using_sake_casing():
+    return current_casing == Casing.SNAKE
+
+
+def using_upper_snake_casing():
+    return current_casing == Casing.UPPER_SNAKE
+
+
+def using_proper_casing():
+    return current_casing == Casing.PROPER
+
+
+def using_camel_casing():
+    return current_casing == Casing.CAMEL
 
 
 def _terminate(*args):
@@ -50,7 +71,7 @@ def write(text: str | list[str]):
                 keyboard.press_and_release(key)
 
 
-def _backspace(n_times):
+def backspace(n_times):
     for _ in range(0, n_times):
         keyboard.press_and_release("backspace")
 
@@ -60,25 +81,6 @@ def _is_arrow(name: str):
     return name in arrows
 
 
-# TODO: THIS IS A HACK UNTIL I SOLVE AT A LOWER LEVEL
-# ALSO I WILL NEED TO KEEP TRACK OF LEFT AND RIGHT VERSIONS NOT BOTH AT ONCE
-def _is_shift(name: str):
-    return "shift" in name.lower()
-
-
-def _is_ctrl(name: str):
-    return "ctrl" in name.lower()
-
-
-def _is_alt(name: str):
-    return "alt" in name.lower()
-
-
-def _is_meta(name: str):
-    return "windows" in name.lower()
-
-
-just_pressed_shift: bool = False
 prev_real_event: keyboard.KeyboardEvent = None
 
 
@@ -101,7 +103,7 @@ def backspace_then_write(backspace_count, to_write, update_expected=True):
             expected_counter = backspace_count + _non_command_count(to_write)
         else:
             expected_counter = backspace_count + len(to_write)
-    _backspace(backspace_count)
+    backspace(backspace_count)
     write(to_write)
 
 
@@ -122,16 +124,31 @@ def delete_previous_word(* args):
     expected_counter = determine_amount_to_backspace_shift_backspace(
         buffer)
 
-    _backspace(expected_counter)
+    backspace(expected_counter)
 
 
-def toggle_casing(casing):
-    global current_casing
-    current_casing = Casing.NORMAL if current_casing == casing else casing
+def activate_kabab_mode(*args):
+    activate_casing(Casing.KEBAB)
 
 
-def toggle_kebab_case(*args):
-    toggle_casing(Casing.KEBAB)
+def activate_snake_mode(*args):
+    activate_casing(Casing.SNAKE)
+
+
+def activate_normal_casing_mode(*args):
+    activate_casing(Casing.NORMAL)
+
+
+def activate_upper_snake_mode(*args):
+    activate_casing(Casing.UPPER_SNAKE)
+
+
+def activate_proper_mode(*args):
+    activate_casing(Casing.PROPER)
+
+
+def activate_camel_mode(*args):
+    activate_casing(Casing.CAMEL)
 
 
 # command processor logic
@@ -141,18 +158,19 @@ command_processor.register("restart", restart)
 command_processor.register("clear_buffer", clear_buffer)
 
 # effects previous word
-command_processor.register("prev_word_toggle_case", prev_word_toggle_prev)
-command_processor.register("prev_word_upper_case", _terminate)
-command_processor.register("prev_word_lower_case", _terminate)
-command_processor.register("full_prev_word_all_caps", _terminate)
-command_processor.register("full_prev_word_all_lower", _terminate)
+# command_processor.register("prev_word_toggle_case", prev_word_toggle_prev)
+# command_processor.register("prev_word_upper_case", _terminate)
+# command_processor.register("prev_word_lower_case", _terminate)
+# command_processor.register("full_prev_word_all_caps", _terminate)
+# command_processor.register("full_prev_word_all_lower", _terminate)
 
 # casing
-command_processor.register("toggle-kebab-case", toggle_kebab_case)
-command_processor.register("snake_mode", _terminate)
-command_processor.register("proper_mode", _terminate)
-command_processor.register("cammel_mode", _terminate)
-command_processor.register("upper_snake", _terminate)
+command_processor.register("normal case mode", activate_normal_casing_mode)
+command_processor.register("kebab-case-mode", activate_kabab_mode)
+command_processor.register("snake_case_mode", activate_snake_mode)
+command_processor.register("ProperCaseMode", activate_proper_mode)
+command_processor.register("cammelCaseMode", activate_camel_mode)
+command_processor.register("UPPER_SNAKE_CASE_MODE", activate_upper_snake_mode)
 
 
 def handle_auto_append(event, config):
@@ -229,8 +247,9 @@ def add_utf_and_update_expected(utf: str):
 def handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
     PUNCTUATION_PLUS_SPACE = 2
     at_start_of_buffer = len(_buffer) <= PUNCTUATION_PLUS_SPACE
+    space_length = len(white_space)
     # append punctuation when spacing
-    if word in append_chars and len(white_space) == 1 and not at_start_of_buffer:
+    if word in append_chars and space_length == 1 and not at_start_of_buffer:
         to_write = word + prev_whitespace
         backspace_count = len(prev_whitespace) + len(word) + 1
         backspace_then_write(backspace_count, to_write,
@@ -240,24 +259,15 @@ def handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
 
 
 def captlize_if_needed(to_write, to_write_is_str, config):
+
     capitalize_after = config.capitalize_after
     captlize_passthrough = config.capitalize_passthrough
 
-    should_capitalize = _buffer.should_captlize_prev_word(
+    should_capitalize = using_normal_casing() and _buffer.should_captlize_prev_word(
         captilize_after=capitalize_after, pass_through=captlize_passthrough) and to_write_is_str
     if should_capitalize:
         return captlize(to_write)
     return to_write
-
-
-def start_overlap_length(s1: str, s2: str):
-    length = 0
-    short_length = min(len(s1), len(s2))
-    for i in range(0, short_length):
-        if s1[i] != s2[i]:
-            break
-        length += 1
-    return length
 
 
 def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
@@ -268,19 +278,25 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
     pressed_key = event.event_type == keyboard.KEY_DOWN
     typing = expected_counter > 0
 
-    if is_space and pressed_key and not shift_down and not typing:
-        process_chip = True
+    if is_space and pressed_key and not typing:
+        process_chip = not shift_down
         _buffer.add(' ')
-        prev_whitespace = _buffer.get_white_space_before_prev_word()
         white_space = _buffer.get_trailing_white_space()
+        # this approach means if a user hits space then clears the buffer and hits space again it won't restore normal mode
+        if not using_normal_casing() and white_space == "  ":
+            activate_normal_casing_mode()
+            backspace(1)
+            return
+        prev_whitespace = _buffer.get_white_space_before_prev_word()
         word = _buffer.get_prev_word()
+        prev_word = _buffer.get_word(-2)
 
-        if handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
+        if not shift_down and handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
             return True
 
-        # only wan to expan chip if there is only 1 ' '
+        # only want to expand chip if there is only 1 ' '
         if len(white_space) > 1:
-            return process_chip
+            process_chip = False
 
         char_frequency = FrozenDict.from_string(word)
         to_write = ""
@@ -289,25 +305,28 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
             to_write = chip_map[char_frequency]
         else:
             to_write = word
+        # print("hi", to_write)
 
         to_write_is_str = isinstance(to_write, str)
         to_write = captlize_if_needed(to_write,  to_write_is_str, config)
+        # buffer_length = len(_buffer)
 
-        if to_write != "" and to_write != word:
-            overlapping_start = start_overlap_length(
-                to_write, word) if to_write_is_str else 0
+        overlapping_start = 0
+        prepended = 0
+
+        if to_write_is_str:
+            to_write, prepended, overlapping_start = convert_casing(
+                to_write, word, prev_word, prev_whitespace, current_casing)
+
+        if is_not_empty_str(to_write) and (to_write != word or prepended != 0):
 
             to_write = to_write[overlapping_start:]
-            to_backspace_count = len(word)+1-overlapping_start
-
+            to_backspace_count = len(word)+1-overlapping_start + prepended
             if to_write_is_str:
                 to_write += " "
             backspace_then_write(to_backspace_count,
                                  to_write, update_expected=True)
-
-            return True
-        # backspace space if not writing
-        _buffer.backspace()
+        return True
     return False
 
 
@@ -322,8 +341,6 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
     # print(event.name)
     # print(_buffer)
     # print("------------------------------------------------")
-
-    # handle_auto_append, returns true if should early return
 
     down_mods = down_modifiers(event)
     shift_down = SHIFT in down_mods
@@ -350,6 +367,7 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
 def process_event_wrapper(event):
     global prev_real_event
     _process_event(event)
+    # print(_buffer)
     if expected_counter == 0:
         prev_real_event = event
 

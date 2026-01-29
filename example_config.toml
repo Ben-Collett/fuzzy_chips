@@ -22,8 +22,8 @@
 # if true when pressing an append char it will be automatically appended to the previous word in the buffer and white space will be restored
 # if false then it won't append until you press space and will fail to do so if you press shift+space
 # you probably don't want to auto append when working with shells and programming
-"append_chars" = [".", "!", "?", ",", ";"]
-"auto_append" = true
+"append_chars" = [".", "!", "?", ",", ";", ")", "]", "}"]
+"auto_append" = false
 # if the previous word ends with one of these characters then the current word will be capitalized once you hit space
 "capitalize_after" = [".", "!", "?"]
 # passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized
@@ -41,19 +41,18 @@
 "qui" = ["quit"]
 "ras" = ["restart"]
 "cl" = ["clear_buffer"]
-# set sep allows us to set a separator or a case like
-"ka" = ["toggle-kebab-case"]
-"_" = ["toggle_snake_case"]
-"__" = ["TOGGLE_UPPER_SNAKE_CASE"]
-"cm" = ["toggleCamelCase"]
-"pm" = ["ToggleProperCase"]
-"tpw" = [
-  "prev_word_toggle_case",
-  "prev_word_toggle_case",
-  "prev_word_toggle_case"
-]
-# "'h" = ["hyphen-mode"]
-# "'u" = ["snake-mode"]
+"-" = ["kebab-case-mode"]
+"nm" = ["normal case mode"]
+"_" = ["snake_case_mode"]
+"__" = ["UPPER_SNAKE_CASE_MODE"]
+"pm" = ["ProperCaseMode"]
+"cmm" = ["cammelCaseMode"]
+# "c(" = ["backspace", "shift", "(", ")"] # buged doesn't handle captlizeding for ()
+# "tpw" = [
+#   "prev_word_toggle_case",
+#   "prev_word_toggle_case",
+#   "prev_word_toggle_case"
+# ]
 "t," = "this is dumb, but legal and useful for testing"  # just keep in mind if you do this and you have auto append on and , set to append you better hit t before ,
 # you can use to to make typing a word order independent, example ta = at or toni = into
 "at" = "at"
@@ -66,6 +65,8 @@
 "r" = "are"
 # or reuse letters
 "ppl" = "people"
+# you can also map to multiple words
+"mws" = "this is multiple words isn't that cool"
 # keep in mind since order doesn't matter you probably don't want to overried on to be on since it is the same as no
 "o" = "on"
 "n" = "no"

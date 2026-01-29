@@ -3,6 +3,10 @@ from keyboard import KeyboardEvent, KEY_DOWN
 from modifiers import SHIFT, CTRL, ALT, WINDOWS
 
 
+def print_debug(*args, **kwargs):
+    print(*args, **kwargs)
+
+
 def down_modifiers(event: KeyboardEvent):
     modifiers = event.modifiers
     out = set()
@@ -37,6 +41,10 @@ def to_utf(event: KeyboardEvent, shift_down):
             return name
     elif name == "space":
         return " "
+    elif name == "tab":
+        return "\t"
+    elif name == "enter":
+        return "\n"
 
 
 def alpha_numericish(ch: str):
