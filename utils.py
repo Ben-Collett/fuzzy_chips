@@ -86,7 +86,6 @@ def shift_press_release(buffer: list[str]) -> (int, str):
         i -= 1
 
     toggle_whole_word = False
-    print(buffer)
     while i >= 0 and buffer[i] != " ":
         if buffer[i] == "_" and i >= 1 and buffer[i-1] != " ":
             toggle_whole_word = True
