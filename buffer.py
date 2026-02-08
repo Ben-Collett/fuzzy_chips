@@ -6,6 +6,15 @@ class RingBuffer:
         self.capacity = capacity
         self.buffer = deque(maxlen=capacity)
 
+    def remove_first(self):
+        if not self.is_empty():
+            self.buffer.popleft()
+
+    def set_buffer(self, items):
+        self.buffer.clear()
+        for item in items:
+            self.buffer.append(item)
+
     def add(self, item):
         """Add item to the buffer (removes oldest if full)"""
         self.buffer.append(item)
@@ -138,12 +147,6 @@ class RingBuffer:
 
     def get_prev_word(self) -> str:
         return self.get_word(-1)
-        # chars = self.get()
-        # target = RingBuffer._get_prev_word_range(chars)
-        # if target is None:
-        #     return ""
-        # lower, upper = target
-        # return ''.join(chars[lower:upper+1])
 
     @staticmethod
     def _get_prev_word_range(chars: list[str]):
@@ -167,10 +170,7 @@ class RingBuffer:
 
     def backspace(self):
         if not self.is_empty():
-            self.buffer.pop()
-
-    def ends_with(self, val: str):
-        chars = self.get()
+            return self.buffer.pop()
 
     def is_empty(self):
         return len(self.buffer) == 0

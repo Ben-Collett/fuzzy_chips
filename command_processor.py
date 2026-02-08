@@ -6,7 +6,7 @@ CommandHandler = Callable[[List[str]], None]
 class CommandProcessor:
     def __init__(self, fallback: Callable[[str], None] | None = None):
         self._commands: dict[str, CommandHandler] = {}
-        self._ipc_commands: set[str] = set()
+        self.ipc_commands: set[str] = set()
         self._fallback = fallback
 
     def has_command(self, cmd: str):
@@ -15,7 +15,7 @@ class CommandProcessor:
     def register(self, name: str, handler: CommandHandler, ipc_enabled=False):
         self._commands[name] = handler
         if ipc_enabled:
-            self._ipc_commands.add(name)
+            self.ipc_commands.add(name)
 
     def process(self, line: str):
         tokens = line.strip().split()
@@ -32,17 +32,26 @@ class CommandProcessor:
             self._fallback(line)
 
     def process_ipc(self, line: str) -> str:
-        tokens = line.strip().split()
-        if not tokens:
-            return "invalid"
+        command_l: list[str] = []
+        arg_l: list[str] = []
 
-        command = tokens[0]
-        args = tokens[1:]
+        finished_command = False
 
+        line = line.lstrip()
+        for ch in line:
+            if not finished_command and ch.isspace():
+                finished_command = True
+            elif not finished_command:
+                command_l.append(ch)
+            else:
+                arg_l.append(ch)
+
+        command = ''.join(command_l)
+        args = ''.join(arg_l)
         if command not in self._commands:
             return "invalid"
 
-        if command not in self._ipc_commands:
+        if command not in self.ipc_commands:
             return "not ipc enabled"
 
         try:

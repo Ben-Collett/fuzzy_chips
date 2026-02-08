@@ -3,21 +3,30 @@ import socket
 import threading
 from typing import Optional
 from command_processor import CommandProcessor
+from config import current_config
 
 
 class IPCServer:
     def __init__(
         self,
         command_processor: CommandProcessor,
-        host: str = "127.0.0.1",
-        port: int = 8765,
     ):
         self.command_processor = command_processor
-        self.host = host
-        self.port = port
         self.server_socket: Optional[socket.socket] = None
         self.running = False
         self.thread: Optional[threading.Thread] = None
+
+    @property
+    def host(self):
+        return current_config.host
+
+    @property
+    def port(self):
+        return current_config.port
+
+    @host.setter
+    def host(self, value):
+        self._host = value
 
     def start(self):
         """Start the IPC server in a separate thread."""
@@ -84,37 +93,47 @@ class IPCServer:
                 pass
 
     def _handle_client(self, client_socket: socket.socket):
-        """Handle a persistent client connection."""
         buffer = b""
 
         try:
             while self.running:
                 data = client_socket.recv(4096)
                 if not data:
-                    # client closed connection
                     break
 
                 buffer += data
 
-                # process all complete messages
-                while b"\n" in buffer:
-                    line, buffer = buffer.split(b"\n", 1)
+                while True:
+                    # Step 1: read length line
+                    if b"\n" not in buffer:
+                        break
 
-                    message = line.decode("utf-8", errors="replace").strip()
-                    if not message:
-                        continue
+                    header, rest = buffer.split(b"\n", 1)
+
+                    try:
+                        length = int(header.decode("ascii"))
+                    except ValueError:
+                        client_socket.sendall(b"invalid\n")
+                        return
+
+                    # Step 2: wait until full payload arrives
+                    if len(rest) < length:
+                        break
+
+                    payload = rest[:length]
+                    buffer = rest[length:]
+
+                    message = payload.decode("utf-8", errors="replace")
 
                     try:
                         response = self.command_processor.process_ipc(message)
                     except Exception:
                         response = "invalid"
 
-                    try:
-                        client_socket.sendall(
-                            (response + "\n").encode("utf-8")
-                        )
-                    except BrokenPipeError:
-                        return
+                    client_socket.sendall(
+                        f"{len(response)}\n".encode("ascii") +
+                        response.encode("utf-8")
+                    )
 
         except (socket.timeout, ConnectionResetError):
             pass

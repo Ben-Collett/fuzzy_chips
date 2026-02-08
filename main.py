@@ -1,18 +1,19 @@
-import keyboard
-from config import current_config
-from buffer import RingBuffer
-from frozen_dict import FrozenDict
-from utils import backspaces_to_delete_previous_word, shift_press_release
-from utils import down_modifiers, to_utf
-from command_processor import CommandProcessor
-from commands import make_processor
-from ipc_server import IPCServer
-from collection_utils import count_where, captlize, is_not_empty_str
-from casing import Casing, convert_casing
-import threading
-import sys
-import os
 from modifiers import SHIFT, CTRL, ALT, WINDOWS
+import os
+import sys
+import threading
+from casing import Casing, convert_casing
+from collection_utils import count_where, captlize, is_not_empty_str
+from ipc_server import IPCServer
+from commands import make_processor
+from command_processor import CommandProcessor
+from utils import down_modifiers, to_utf
+from utils import backspaces_to_delete_previous_word, shift_press_release
+from frozen_dict import FrozenDict
+from threading import Event
+from buffer import RingBuffer
+from config import current_config
+import keyboard
 
 keyboard.init(
     linux_collision_safety_mode=keyboard.LinuxCollisionSafetyModes.PATIENT)
@@ -21,6 +22,8 @@ stop_event = threading.Event()
 current_casing = Casing.NORMAL
 expected_counter = 0
 _buffer = RingBuffer(100)
+_right_arrow_buffer = RingBuffer(100)
+just_set = Event()
 
 
 def activate_casing(casing):
@@ -59,7 +62,25 @@ def _terminate(*args):
 
 def clear_buffer(*args):
     _buffer.clear()
-    print("clearing buffer")
+    _right_arrow_buffer.clear()
+
+
+def move_last(source: RingBuffer, target: RingBuffer):
+    if not source.is_empty():
+        target.add(source.backspace())
+
+
+def set_buffer(args, buffer):
+    just_set.set()
+    buffer.set_buffer(args)
+
+
+def set_main_buffer(args):
+    set_buffer(args, _buffer)
+
+
+def set_buffer_right(args):
+    set_buffer(args[::-1], _right_arrow_buffer)
 
 
 def write(text: str | list[str]):
@@ -67,7 +88,8 @@ def write(text: str | list[str]):
         keyboard.write(text)
     else:
         for key in text:
-            if command_processor.has_command(key):
+            command = key.split(" ")[0]
+            if command_processor.has_command(command):
                 command_processor.process(key)
             else:
                 keyboard.press_and_release(key)
@@ -76,11 +98,6 @@ def write(text: str | list[str]):
 def backspace(n_times):
     for _ in range(0, n_times):
         keyboard.press_and_release("backspace")
-
-
-def _is_arrow(name: str):
-    arrows = ["left", "right", "up", "down"]
-    return name in arrows
 
 
 prev_real_event: keyboard.KeyboardEvent | None = None
@@ -154,34 +171,41 @@ def activate_camel_mode(*args):
 
 # command processor logic
 command_processor: CommandProcessor = make_processor()
+ipc_enabled = []
 command_processor.register("restart", restart)
 
 command_processor.register("quit", _terminate)
-command_processor.register("clear_buffer", clear_buffer, ipc_enabled=True)
-command_processor.register("cb", clear_buffer, ipc_enabled=True)
 
-# effects previous word
-# command_processor.register("prev_word_toggle_case", prev_word_toggle_prev)
-# command_processor.register("prev_word_upper_case", _terminate)
-# command_processor.register("prev_word_lower_case", _terminate)
-# command_processor.register("full_prev_word_all_caps", _terminate)
-# command_processor.register("full_prev_word_all_lower", _terminate)
+commands = {
+    "clear_buffer": clear_buffer,
+    "normalc": activate_normal_casing_mode,
+    "kebab-case-mode": activate_kabab_mode,
+    "snake_case_mode": activate_snake_mode,
+    "ProperCaseMode": activate_proper_mode,
+    "camelCaseMode": activate_camel_mode,
+    "UPPER_SNAKE_CASE_MODE": activate_upper_snake_mode,
+    "cb": clear_buffer,
+    "mc": activate_normal_casing_mode,
+    "sc": activate_snake_mode,
+    "pm": activate_proper_mode,
+    "cm": activate_camel_mode,
+    "us": activate_upper_snake_mode,
+    # WARNING: ONLY WORKS WITH IPC UNLESS YOU PAD THE NEW BUFFER WITH JUNK DATA TO MAKE UP FOR BACSPACES
+    "sm": set_main_buffer,
+    "sr": set_buffer_right,
+}
 
-# casing
-command_processor.register(
-    "normal case mode", activate_normal_casing_mode, ipc_enabled=True
-)
-command_processor.register(
-    "kebab-case-mode", activate_kabab_mode, ipc_enabled=True)
-command_processor.register(
-    "snake_case_mode", activate_snake_mode, ipc_enabled=True)
-command_processor.register(
-    "ProperCaseMode", activate_proper_mode, ipc_enabled=True)
-command_processor.register(
-    "cammelCaseMode", activate_camel_mode, ipc_enabled=True)
-command_processor.register(
-    "UPPER_SNAKE_CASE_MODE", activate_upper_snake_mode, ipc_enabled=True
-)
+
+def update_ipc_enabled(config=current_config):
+    command_processor.ipc_commands.clear()
+    for command in commands.keys():
+        if command in config.ipc_enabled_commands:
+            command_processor.ipc_commands.add(command)
+
+
+for command, func in commands.items():
+    command_processor.register(command, func)
+update_ipc_enabled()
 
 
 def handle_auto_append(event, config):
@@ -231,6 +255,7 @@ def handle_backspace(event, shift_down):
 
 def handle_clear(name, config, meta_down, ctrl_down, alt_down):
     clear_on = current_config.clear_buffer_on_keys
+    safe_clear = current_config.just_set_safe_clear
     should_clear = name in clear_on
 
     if "windows_down" in clear_on:
@@ -239,6 +264,8 @@ def handle_clear(name, config, meta_down, ctrl_down, alt_down):
         should_clear = should_clear or alt_down
     if "ctrl_down" in clear_on:
         should_clear = should_clear or ctrl_down
+    if not just_set.is_set() and name in safe_clear:
+        should_clear = True
 
     if should_clear:
         clear_buffer()
@@ -347,15 +374,11 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
 
 def _process_event(event: keyboard.KeyboardEvent, config=current_config):
     global prev_real_event
-    global _buffer
+    global _buffer, _right_arrow_buffer
     global expected_counter, typing
 
     if handle_auto_append(event, config):
         return
-
-    # print(event.name)
-    # print(_buffer)
-    # print("------------------------------------------------")
 
     down_mods = down_modifiers(event)
     shift_down = SHIFT in down_mods
@@ -372,7 +395,20 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
     if handle_if_release_event(event, config.toggle_case_on):
         return
 
+    # ============= EVENT GUARANTEED BE DOWN PAST THIS POINT ================
+
     if handle_space(event, shift_down, config):
+        return
+
+    name = event.name
+    if name == "left":
+        move_last(source=_buffer, target=_right_arrow_buffer)
+        return
+    elif name == "right":
+        move_last(source=_right_arrow_buffer, target=_buffer)
+        return
+    elif name == "delete":
+        _right_arrow_buffer.remove_first()
         return
 
     utf: str | None = to_utf(event, shift_down)
@@ -382,7 +418,7 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
 def process_event_wrapper(event):
     global prev_real_event
     _process_event(event)
-    # print(_buffer)
+    just_set.clear()
     if expected_counter == 0:
         prev_real_event = event
 

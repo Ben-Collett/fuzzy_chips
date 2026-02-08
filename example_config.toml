@@ -9,15 +9,9 @@
 # for example I use keyd and if I press right shift it will hold down alt if I release it without typing anything else it will type ?
 # that means the buffer gets cleared and it would mess with append_chars if I had alt_down in my config to clear the buffer
 # Also keep in mind using clear_on_buffer will interfere with toggle_case_on if you put the same key in both
-"clear_buffer_on" = [
-  "windows_down",
-  "ctrl_down",
-  "alt_down",
-  "left",
-  "right",
-  "up",
-  "down"
-]
+"clear_buffer_on" = ["windows_down", "ctrl_down", "alt_down"]
+# same as clear_buffer_on unless using ipc if the buffer was just set by ipc then the event won't clear the buffer
+"just_set_safe_clear" = ["up", "down"]
 # append_chars have special behavior depending on the setting of auto_append
 # if true when pressing an append char it will be automatically appended to the previous word in the buffer and white space will be restored
 # if false then it won't append until you press space and will fail to do so if you press shift+space
@@ -32,6 +26,39 @@
 
 # chips can be a list of keys or a string of characters, if its a list each element must be a valid key name
 # if it is a string then space will be automatically added at the end when triggering the chip this is not true for list in that case you must end with a space key if you want to space
+
+[ipc]
+# uses a tcp socket
+port = 8765
+host = "127.0.0.1"  # local host, I can't think of a reason to change this but it's here
+# commands that can be sent through ipc, all disabled by default
+# works nicely with this neovim plugin: TODO
+# do keep in mind any program can access these commands even a malicouse one(theoretically atleast)
+# highly unlikely for a attack area since most commands can't really be used in a very harmful way for most users
+# plus pretty much no one is using fuzzy chips so there is no inscentive to try to exploit it.
+ipc_enabled_commands = [
+  # With thee commands a prakster could theortically prevent you from typing in normal mode with this I guess
+  # though why they would I don't know, and it is pretty pointless if you have a chip set up to quit the program
+
+  # "mc",  # activate normal casing
+  # "sc",  # activate snake_casing
+  # "pm",  # activate ProperCasing
+  # "cm",  # activate camelCasing
+  # "us",  # activate UPPER_SNAKE_CASING
+  # I guess a bad actor could force you to type the wrong chip if they had these commands...
+  # "cb",  # clear buffer
+  # "sm",  # set main buffer
+  # "sr",  # set right buffer
+
+  # WARNING: the below are more exploitable
+  # for example I could change your config file and change chips to something else if I where a malisouce actor with rl and rs
+  # like if you used a crypto wallett or something like that it could be bad.
+
+  # although a bad actor with the remote code execution required to do that could probably do worse...
+  # "rl",  # reload config
+  # "rs",  # restart program
+]
+
 [chips]
 # examples using a list very nice for after you type something like th for that and then hitting 's to make that's
 "'s" = ["backspace", "'", "s", "space"]
