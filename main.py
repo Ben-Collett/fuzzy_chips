@@ -7,7 +7,7 @@ from collection_utils import count_where, captlize, is_not_empty_str
 from ipc_server import IPCServer
 from commands import make_processor
 from command_processor import CommandProcessor
-from utils import down_modifiers, to_utf
+from utils import down_modifiers, to_utf, is_str
 from utils import backspaces_to_delete_previous_word, shift_press_release
 from frozen_dict import FrozenDict
 from threading import Event
@@ -84,7 +84,7 @@ def set_buffer_right(args):
 
 
 def write(text: str | list[str]):
-    if isinstance(text, str):
+    if is_str(text):
         keyboard.write(text)
     else:
         for key in text:
@@ -118,10 +118,10 @@ def _non_command_count(to_write: list[str]):
 def backspace_then_write(backspace_count, to_write, update_expected=True):
     if update_expected:
         global expected_counter
-        if isinstance(to_write, list):
-            expected_counter = backspace_count + _non_command_count(to_write)
-        else:
+        if is_str(to_write):
             expected_counter = backspace_count + len(to_write)
+        else:
+            expected_counter = backspace_count + _non_command_count(to_write)
     backspace(backspace_count)
     write(to_write)
 
@@ -310,6 +310,34 @@ def captlize_if_needed(to_write, to_write_is_str, config):
     return to_write
 
 
+def valid_chip(freq, config=current_config):
+    return freq in current_config.chip_map.keys()
+
+
+# TODO: this name kind of sucks
+def extract_ignored_leading_word_trailing(word: str, config=current_config):
+    ignored_leading = current_config.ignored_leading
+    ignored_trailing = current_config.ignored_trailing
+
+    leading = []
+    trailing = []
+    for ch in word:
+        if ch in ignored_leading:
+            leading.append(ch)
+        else:
+            break
+    for ch in reversed(word):
+        if ch in ignored_trailing:
+            trailing.append(ch)
+        else:
+            break
+
+    leading_str = "".join(leading)
+    trailing_str = "".join(reversed(trailing))
+    word = word.removeprefix(leading_str).removesuffix(trailing_str)
+    return leading_str, word, trailing_str
+
+
 def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
     global expected_counter
     chip_map = config.chip_map
@@ -343,13 +371,29 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
         char_frequency = FrozenDict.from_string(word)
         to_write = ""
 
-        if process_chip and char_frequency in chip_map.keys():
-            to_write = chip_map[char_frequency]
+        leading = ""
+        trailing = ""
+        is_valid_chip = valid_chip(char_frequency, config)
+        if not is_valid_chip:
+            leading, w, trailing = extract_ignored_leading_word_trailing(
+                word, config)
+            char_frequency = FrozenDict.from_string(w)
+            # we check if it's a str because if it is a list we don't handle ignoring leading and trailing
+            # and if it got to this point we know it wasn't an exact match for a command chip
+            is_valid_chip = valid_chip(char_frequency, config) and is_str(
+                chip_map[char_frequency])
+
+        if process_chip and is_valid_chip:
+            chip_res = chip_map[char_frequency]
+            if is_str(chip_res):
+                to_write = leading+chip_map[char_frequency] + trailing
+            else:
+                to_write = chip_map[char_frequency]
         else:
             to_write = word
         # print("hi", to_write)
 
-        to_write_is_str = isinstance(to_write, str)
+        to_write_is_str = is_str(to_write)
         to_write = captlize_if_needed(to_write, to_write_is_str, config)
         # buffer_length = len(_buffer)
 

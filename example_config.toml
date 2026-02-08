@@ -23,16 +23,26 @@
 # passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized
 # where as 'hi' it will not
 "captlize_passthrough" = ['"', "'", "`"]
-
-# chips can be a list of keys or a string of characters, if its a list each element must be a valid key name
-# if it is a string then space will be automatically added at the end when triggering the chip this is not true for list in that case you must end with a space key if you want to space
+# WARNING: these options are a little more complicated
+# they allow you to ignore certain leading and trailing characters for chip expansion, for example:
+# if you have hv = have, you probably want "hv to expand to "have and "hv" to expand to "have", this allows you to do that without defining extra chips for every case
+# complexity occurs when you use one of these characters inside of a chip like using w' = we're.
+# in this case if there is an exact match that is you type 'w we will expand the chip if there is not an exact match say you type
+# 'w' we will expand as if you had meant to type w between single quotes, so if w = were then you would get 'were' if w isn't mapped to anything you will just get a w in single quotes
+# having said that I would generally suggest avoiding ignoring any characters you uese inside of your chips for this very reason.
+# or you could remove everything from ignored prefixes and postfixes if you prefer.
+# if you are going to do so then avoid defining chips which are single letters when you have a variant with one of the ignore characters.
+# for example if you define a chip t= the, I would advise against defining 't = anything.
+# these rules only apply to chips which are mapped to strings if a chip maps to a list then it will not obey ignore_leading and ignore_trailing and will only expand for an exact match
+"ignored_leading" = ['"', "(", "[", "{", "`", "'"]
+"ignored_trailing" = ['"', ")", "]", "}", "`", "'", ".", "!", "?"]
 
 [ipc]
 # uses a tcp socket
 port = 8765
 host = "127.0.0.1"  # local host, I can't think of a reason to change this but it's here
 # commands that can be sent through ipc, all disabled by default
-# works nicely with this neovim plugin: TODO
+# works nicely with this neovim plugin: https://github.com/Ben-Collett/chipped.nvim
 # do keep in mind any program can access these commands even a malicouse one(theoretically atleast)
 # highly unlikely for a attack area since most commands can't really be used in a very harmful way for most users
 # plus pretty much no one is using fuzzy chips so there is no inscentive to try to exploit it.
@@ -59,6 +69,8 @@ ipc_enabled_commands = [
   # "rs",  # restart program
 ]
 
+# chips can be a list of keys or a string of characters, if its a list each element must be a valid key name
+# if it is a string then space will be automatically added at the end when triggering the chip this is not true for list in that case you must end with a space key if you want to space
 [chips]
 # examples using a list very nice for after you type something like th for that and then hitting 's to make that's
 "'s" = ["backspace", "'", "s", "space"]
@@ -97,6 +109,8 @@ ipc_enabled_commands = [
 # keep in mind since order doesn't matter you probably don't want to overried on to be on since it is the same as no
 "o" = "on"
 "n" = "no"
+# You can use non-letters just keep in mind your ignored prefixes and postfixes
+"w'" = "we're"
 # ================== nothing new below this point just more examples ===============================
 "is" = "is"
 "of" = "of"
@@ -126,6 +140,7 @@ ipc_enabled_commands = [
 "c" = "can"
 "b" = "be"
 "t" = "the"
+"tt" = "the"
 "js" = "just"
 "nv" = "never"
 "th" = "that"
@@ -201,4 +216,3 @@ ipc_enabled_commands = [
 "wul" = "would"
 "frm" = "from"
 "dif" = "different"
-"w'" = "we're"

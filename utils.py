@@ -32,6 +32,10 @@ def down_modifiers(event: KeyboardEvent):
     return out
 
 
+def is_str(obj):
+    return isinstance(obj, str)
+
+
 def to_utf(event: KeyboardEvent, shift_down):
     name = event.name
     if len(name) == 1:

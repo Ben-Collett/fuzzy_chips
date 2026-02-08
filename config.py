@@ -68,9 +68,6 @@ class Config:
             "clear_buffer_on", ["windows_down", "alt_down", "ctrl_down"])
         self.just_set_safe_clear = get_general(
             "just_set_safe_clear", ["up", "down"])
-        self.port = get_ipc("port", 8765)
-        self.host = get_ipc("host", "127.0.0.1")
-        self.ipc_enabled_commands = get_ipc("ipc_enabled_commands", [])
 
         self.shift_backspace_included_delimiters = get_general(
             # different kinds of dashes minus,  emdash, endash hyphen
@@ -78,6 +75,15 @@ class Config:
         self.shift_backspace_excluded_delimiters = get_general(
             "shift_backspace_excluded_delimiters", [" "])
         self.separate_tail = get_general("separate_tail", ["uppercase"])
+
+        self.ignored_leading = get_general("ignored_leading",  [
+                                           '"', "(", "[", "{", "`", "'"])
+        self.ignored_trailing = get_general(
+            "ignored_trailing",  ['"', ")", "]", "}", "`", "'", ".", "!", "?"])
+
+        self.port = get_ipc("port", 8765)
+        self.host = get_ipc("host", "127.0.0.1")
+        self.ipc_enabled_commands = get_ipc("ipc_enabled_commands", [])
 
 
 current_config = Config(_load_toml())
