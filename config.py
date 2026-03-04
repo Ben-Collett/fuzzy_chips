@@ -79,7 +79,7 @@ class Config:
         self.ignored_leading = get_general("ignored_leading",  [
                                            '"', "(", "[", "{", "`", "'"])
         self.ignored_trailing = get_general(
-            "ignored_trailing",  ['"', ")", "]", "}", "`", "'", ".", "!", "?"])
+            "ignored_trailing",  ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","])
 
         self.port = get_ipc("port", 8765)
         self.host = get_ipc("host", "127.0.0.1")

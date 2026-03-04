@@ -35,7 +35,7 @@
 # for example if you define a chip t= the, I would advise against defining 't = anything.
 # these rules only apply to chips which are mapped to strings if a chip maps to a list then it will not obey ignore_leading and ignore_trailing and will only expand for an exact match
 "ignored_leading" = ['"', "(", "[", "{", "`", "'"]
-"ignored_trailing" = ['"', ")", "]", "}", "`", "'", ".", "!", "?"]
+"ignored_trailing" = ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","]
 
 [ipc]
 # uses a tcp socket
@@ -85,7 +85,7 @@ ipc_enabled_commands = [
 "_" = ["snake_case_mode"]
 "__" = ["UPPER_SNAKE_CASE_MODE"]
 "pm" = ["ProperCaseMode"]
-"cmm" = ["cammelCaseMode"]
+"cmm" = ["camelCaseMode"]
 # "c(" = ["backspace", "shift", "(", ")"] # buged doesn't handle captlizeding for ()
 # "tpw" = [
 #   "prev_word_toggle_case",

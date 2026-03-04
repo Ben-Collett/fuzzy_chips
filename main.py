@@ -12,8 +12,9 @@ from utils import backspaces_to_delete_previous_word, shift_press_release
 from frozen_dict import FrozenDict
 from threading import Event
 from buffer import RingBuffer
-from config import current_config
+from config import current_config, Config
 import keyboard
+from dataclasses import dataclass
 
 keyboard.init(
     linux_collision_safety_mode=keyboard.LinuxCollisionSafetyModes.PATIENT)
@@ -190,6 +191,7 @@ commands = {
     "pm": activate_proper_mode,
     "cm": activate_camel_mode,
     "us": activate_upper_snake_mode,
+    "kb": activate_kabab_mode,
     # WARNING: ONLY WORKS WITH IPC UNLESS YOU PAD THE NEW BUFFER WITH JUNK DATA TO MAKE UP FOR BACSPACES
     "sm": set_main_buffer,
     "sr": set_buffer_right,
@@ -338,60 +340,91 @@ def extract_ignored_leading_word_trailing(word: str, config=current_config):
     return leading_str, word, trailing_str
 
 
+def escape_to_normal_casing(white_space):
+
+    # this approach means if a user hits space then clears the buffer and hits space again it won't restore normal mode
+    if not using_normal_casing() and white_space == "  ":
+        activate_normal_casing_mode()
+        backspace(1)
+        return True
+    return False
+
+
+# updates the captlization based on upper_count, 1 = catplize, 1>uppercase, else no change
+def _update_captlization(word, upper_count: int):
+    if not is_str(word):
+        return word
+    if upper_count == 1:
+        word = captlize(word)
+    elif upper_count > 1:
+        word = word.upper()
+    return word
+
+
+def _get_chip_result(word, config: Config) -> list[str] | str | None:
+    chip_map = config.chip_map
+    char_frequency = FrozenDict.from_string(word)
+
+    if valid_chip(char_frequency, config):
+        return chip_map[char_frequency]
+
+    def is_upper(ch): return ch.isupper()
+    upper_count = count_where(is_upper, word)
+    word = word.lower()
+    char_frequency = FrozenDict.from_string(word)
+    is_valid_chip = valid_chip(char_frequency, config)
+    if is_valid_chip:
+        chip = chip_map[char_frequency]
+        return _update_captlization(chip, upper_count)
+
+    leading, w, trailing = extract_ignored_leading_word_trailing(
+        word, config)
+    char_frequency = FrozenDict.from_string(w)
+
+    # we check if it's a str because if it is a list we don't handle ignoring leading and trailing
+    # and if it got to this point we know it wasn't an exact match for a command chip
+    is_valid_chip = valid_chip(char_frequency, config) and is_str(
+        chip_map[char_frequency])
+    if is_valid_chip:
+        chip = chip_map[char_frequency]
+        return leading+_update_captlization(chip, upper_count)+trailing
+    return None
+
+
 def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
     global expected_counter
-    chip_map = config.chip_map
     append_chars = config.append_chars
     is_space = event.name == "space"
     pressed_key = event.event_type == keyboard.KEY_DOWN
     typing = expected_counter > 0
 
     if is_space and pressed_key and not typing:
-        process_chip = not shift_down
         _buffer.add(" ")
         white_space = _buffer.get_trailing_white_space()
-        # this approach means if a user hits space then clears the buffer and hits space again it won't restore normal mode
-        if not using_normal_casing() and white_space == "  ":
-            activate_normal_casing_mode()
-            backspace(1)
-            return
+        # escapes snake or camel casing and what not
+        if escape_to_normal_casing(white_space):
+            return True
+
         prev_whitespace = _buffer.get_white_space_before_prev_word()
         word = _buffer.get_prev_word()
         prev_word = _buffer.get_word(-2)
 
+        # handle appending punctuation at end of previous word
         if not shift_down and handle_space_punctuation(
             word, append_chars, white_space, prev_whitespace
         ):
             return True
 
         # only want to expand chip if there is only 1 ' '
-        if len(white_space) > 1:
-            process_chip = False
+        process_chip = not shift_down and len(white_space) == 1
 
-        char_frequency = FrozenDict.from_string(word)
-        to_write = ""
+        to_write = None
+        if process_chip:
+            # can output none
+            to_write = _get_chip_result(word, config)
 
-        leading = ""
-        trailing = ""
-        is_valid_chip = valid_chip(char_frequency, config)
-        if not is_valid_chip:
-            leading, w, trailing = extract_ignored_leading_word_trailing(
-                word, config)
-            char_frequency = FrozenDict.from_string(w)
-            # we check if it's a str because if it is a list we don't handle ignoring leading and trailing
-            # and if it got to this point we know it wasn't an exact match for a command chip
-            is_valid_chip = valid_chip(char_frequency, config) and is_str(
-                chip_map[char_frequency])
-
-        if process_chip and is_valid_chip:
-            chip_res = chip_map[char_frequency]
-            if is_str(chip_res):
-                to_write = leading+chip_map[char_frequency] + trailing
-            else:
-                to_write = chip_map[char_frequency]
-        else:
+        if to_write is None:
             to_write = word
-        # print("hi", to_write)
 
         to_write_is_str = is_str(to_write)
         to_write = captlize_if_needed(to_write, to_write_is_str, config)

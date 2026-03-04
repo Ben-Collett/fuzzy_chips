@@ -20,7 +20,7 @@ class Casing(Enum):
     KEBAB = "kebab"
     SNAKE = "snake"
     UPPER_SNAKE = "upper snake"
-    CAMEL = "cammel"
+    CAMEL = "camel"
     PROPER = "proper"
 
 
