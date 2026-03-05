@@ -19,7 +19,7 @@ keyboard.init(
     linux_collision_safety_mode=keyboard.LinuxCollisionSafetyModes.PATIENT)
 
 stop_event = threading.Event()
-current_casing = Casing.NORMAL
+current_casing: Casing = Casing.NORMAL
 expected_counter = 0
 _buffer = RingBuffer(100)
 _right_arrow_buffer = RingBuffer(100)

@@ -25,7 +25,7 @@ class Casing(Enum):
 
     @property
     def is_normal_casing(self):
-        return self != Casing.NORMAL
+        return self == Casing.NORMAL
 
     @property
     def is_not_normal_casing(self):
