@@ -90,6 +90,18 @@ class RingBuffer:
         start, end = words[index]
         return ''.join(chars[start:end + 1])
 
+    def get_leading_white_space(self) -> str:
+        buffer: list[str] = self.get()
+        end = 0
+        for ch in buffer:
+            if not ch.isspace():
+                break
+            end += 1
+        if end == 0:
+            return ""
+
+        return "".join(buffer[0:end+1])
+
     def get_white_space_before_prev_word(self) -> str:
         chars = self.get()
         if not chars:

@@ -14,7 +14,6 @@ from threading import Event
 from buffer import RingBuffer
 from config import current_config, Config
 import keyboard
-from dataclasses import dataclass
 
 keyboard.init(
     linux_collision_safety_mode=keyboard.LinuxCollisionSafetyModes.PATIENT)
@@ -85,7 +84,7 @@ def set_buffer_right(args):
 
 
 def write(text: str | list[str]):
-    if is_str(text):
+    if is_str(text) and len(text) > 0:
         keyboard.write(text)
     else:
         for key in text:
@@ -104,7 +103,7 @@ def backspace(n_times):
 prev_real_event: keyboard.KeyboardEvent | None = None
 
 
-def determine_amount_to_backspace_shift_backspace(buffer: list[str]):
+def determine_amount_to_backspace_shift_backspace(buffer: list[str]) -> int:
     return backspaces_to_delete_previous_word(buffer)
 
 
@@ -141,9 +140,11 @@ def delete_previous_word(*args):
     buffer = _buffer.get()
     _buffer.backspace()
 
-    expected_counter = determine_amount_to_backspace_shift_backspace(buffer)
-
-    backspace(expected_counter)
+    back_count = determine_amount_to_backspace_shift_backspace(buffer)
+    to_write = ""
+    if current_casing.is_not_normal_casing and len(buffer) - back_count - len(_buffer.get_leading_white_space()) > 1:
+        to_write = " "
+    backspace_then_write(back_count, to_write, update_expected=True)
 
 
 def activate_kabab_mode(*args):

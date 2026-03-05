@@ -16,12 +16,16 @@ DASHES = {"\u002d",  # -
 
 
 class Casing(Enum):
-    NORMAL = "normal",
+    NORMAL = "normal"
     KEBAB = "kebab"
     SNAKE = "snake"
     UPPER_SNAKE = "upper snake"
     CAMEL = "camel"
     PROPER = "proper"
+
+    @property
+    def is_not_normal_casing(self):
+        return self != Casing.NORMAL
 
 
 def is_dash(ch: str) -> bool:
