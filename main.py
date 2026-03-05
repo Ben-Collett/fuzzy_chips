@@ -31,30 +31,6 @@ def activate_casing(casing):
     current_casing = casing
 
 
-def using_normal_casing():
-    return current_casing == Casing.NORMAL
-
-
-def using_kebab_casing():
-    return current_casing == Casing.KEBAB
-
-
-def using_sake_casing():
-    return current_casing == Casing.SNAKE
-
-
-def using_upper_snake_casing():
-    return current_casing == Casing.UPPER_SNAKE
-
-
-def using_proper_casing():
-    return current_casing == Casing.PROPER
-
-
-def using_camel_casing():
-    return current_casing == Casing.CAMEL
-
-
 def _terminate(*args):
     print("terminating...")
     stop_event.set()
@@ -124,10 +100,6 @@ def backspace_then_write(backspace_count, to_write, update_expected=True):
             expected_counter = backspace_count + _non_command_count(to_write)
     backspace(backspace_count)
     write(to_write)
-
-
-def prev_word_toggle_prev(*args):
-    print(expected_counter)
 
 
 def restart(_):
@@ -302,7 +274,7 @@ def captlize_if_needed(to_write, to_write_is_str, config):
     captlize_passthrough = config.capitalize_passthrough
 
     should_capitalize = (
-        using_normal_casing()
+        current_casing.is_normal_casing
         and _buffer.should_captlize_prev_word(
             captilize_after=capitalize_after, pass_through=captlize_passthrough
         )
@@ -344,7 +316,7 @@ def extract_ignored_leading_word_trailing(word: str, config=current_config):
 def escape_to_normal_casing(white_space):
 
     # this approach means if a user hits space then clears the buffer and hits space again it won't restore normal mode
-    if not using_normal_casing() and white_space == "  ":
+    if current_casing.is_not_normal_casing and white_space == "  ":
         activate_normal_casing_mode()
         backspace(1)
         return True
