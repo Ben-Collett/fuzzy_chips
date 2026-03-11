@@ -32,6 +32,14 @@ def down_modifiers(event: KeyboardEvent):
     return out
 
 
+def end_with_count(itr, val):
+    count = 0
+    for i in reversed(itr):
+        if val == itr[i]:
+            count += 1
+    return count
+
+
 def is_str(obj):
     return isinstance(obj, str)
 

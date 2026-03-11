@@ -3,16 +3,18 @@ import os
 import sys
 import threading
 from casing import Casing, convert_casing
+from spacing_type import SpacingType
 from collection_utils import count_where, captlize, is_not_empty_str
 from ipc_server import IPCServer
 from commands import make_processor
 from command_processor import CommandProcessor
 from utils import down_modifiers, to_utf, is_str
 from utils import backspaces_to_delete_previous_word, shift_press_release
-from frozen_dict import FrozenDict
 from threading import Event
 from buffer import RingBuffer
 from config import current_config, Config
+from expansion_utils import get_chip_result
+from expansion_utils import expand_code_casing, valid_chip
 import keyboard
 
 keyboard.init(
@@ -68,7 +70,7 @@ def write(text: str | list[str]):
             if command_processor.has_command(command):
                 command_processor.process(key)
             else:
-                keyboard.press_and_release(key)
+                keyboard.write_list([key])
 
 
 def backspace(n_times):
@@ -77,6 +79,12 @@ def backspace(n_times):
 
 
 prev_real_event: keyboard.KeyboardEvent | None = None
+
+
+def decrement_expected_counter():
+    global expected_counter
+    if expected_counter > 0:
+        expected_counter -= 1
 
 
 def determine_amount_to_backspace_shift_backspace(buffer: list[str]) -> int:
@@ -222,8 +230,7 @@ def handle_backspace(event, shift_down):
         return True
     elif is_backspace and pressed_key:
         _buffer.backspace()
-        if expected_counter > 0:
-            expected_counter -= 1
+        decrement_expected_counter()
         return True
     return False
 
@@ -251,8 +258,7 @@ def handle_clear(name, config, meta_down, ctrl_down, alt_down):
 def add_utf_and_update_expected(utf: str | None):
     global expected_counter
     if utf is not None and (utf.isprintable() or utf.isspace()):
-        if expected_counter > 0:
-            expected_counter -= 1
+        decrement_expected_counter()
         _buffer.add(utf)
 
 
@@ -266,6 +272,32 @@ def handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
         backspace_count = len(prev_whitespace) + len(word) + 1
         backspace_then_write(backspace_count, to_write, update_expected=True)
         return True
+    return False
+
+
+def handle_code_spacing(white_space: str, word: str, config: Config):
+    if config.spacing_type != SpacingType.CODE:
+        return False
+    # can output none
+    left_part = ""
+    right_part = ""
+
+    if len(white_space) == 1:
+        left_part = word
+    if len(_right_arrow_buffer.get_trailing_white_space()) == 0:
+        # right buffer is reversed
+        right_part = _right_arrow_buffer.get_word(-1)[::-1]
+
+    count = 0
+    if right_part != "" or not valid_chip(left_part, config):
+
+        to_write, count = expand_code_casing(
+            left_part, right_part, config)
+
+    if to_write is not None or count > 0:
+        backspace_then_write(count+1, to_write, update_expected=True)
+        return True
+
     return False
 
 
@@ -285,32 +317,7 @@ def captlize_if_needed(to_write, to_write_is_str, config):
     return to_write
 
 
-def valid_chip(freq, config=current_config):
-    return freq in current_config.chip_map.keys()
-
-
 # TODO: this name kind of sucks
-def extract_ignored_leading_word_trailing(word: str, config=current_config):
-    ignored_leading = current_config.ignored_leading
-    ignored_trailing = current_config.ignored_trailing
-
-    leading = []
-    trailing = []
-    for ch in word:
-        if ch in ignored_leading:
-            leading.append(ch)
-        else:
-            break
-    for ch in reversed(word):
-        if ch in ignored_trailing:
-            trailing.append(ch)
-        else:
-            break
-
-    leading_str = "".join(leading)
-    trailing_str = "".join(reversed(trailing))
-    word = word.removeprefix(leading_str).removesuffix(trailing_str)
-    return leading_str, word, trailing_str
 
 
 def escape_to_normal_casing(white_space):
@@ -321,47 +328,6 @@ def escape_to_normal_casing(white_space):
         backspace(1)
         return True
     return False
-
-
-# updates the captlization based on upper_count, 1 = catplize, 1>uppercase, else no change
-def _update_captlization(word, upper_count: int):
-    if not is_str(word):
-        return word
-    if upper_count == 1:
-        word = captlize(word)
-    elif upper_count > 1:
-        word = word.upper()
-    return word
-
-
-def _get_chip_result(word, config: Config) -> list[str] | str | None:
-    chip_map = config.chip_map
-    char_frequency = FrozenDict.from_string(word)
-
-    if valid_chip(char_frequency, config):
-        return chip_map[char_frequency]
-
-    def is_upper(ch): return ch.isupper()
-    upper_count = count_where(is_upper, word)
-    word = word.lower()
-    char_frequency = FrozenDict.from_string(word)
-    is_valid_chip = valid_chip(char_frequency, config)
-    if is_valid_chip:
-        chip = chip_map[char_frequency]
-        return _update_captlization(chip, upper_count)
-
-    leading, w, trailing = extract_ignored_leading_word_trailing(
-        word, config)
-    char_frequency = FrozenDict.from_string(w)
-
-    # we check if it's a str because if it is a list we don't handle ignoring leading and trailing
-    # and if it got to this point we know it wasn't an exact match for a command chip
-    is_valid_chip = valid_chip(char_frequency, config) and is_str(
-        chip_map[char_frequency])
-    if is_valid_chip:
-        chip = chip_map[char_frequency]
-        return leading+_update_captlization(chip, upper_count)+trailing
-    return None
 
 
 def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
@@ -393,8 +359,10 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
 
         to_write = None
         if process_chip:
-            # can output none
-            to_write = _get_chip_result(word, config)
+            if handle_code_spacing(white_space, word, config):
+                return True
+
+            to_write = get_chip_result(word, config)
 
         if to_write is None:
             to_write = word
@@ -453,12 +421,15 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
     name = event.name
     if name == "left":
         move_last(source=_buffer, target=_right_arrow_buffer)
+        decrement_expected_counter()
         return
     elif name == "right":
         move_last(source=_right_arrow_buffer, target=_buffer)
+        decrement_expected_counter()
         return
     elif name == "delete":
         _right_arrow_buffer.remove_first()
+        decrement_expected_counter()
         return
 
     utf: str | None = to_utf(event, shift_down)

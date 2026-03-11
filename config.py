@@ -2,6 +2,7 @@ import tomllib
 import os
 from frozen_dict import FrozenDict
 from my_config_manager import config_manager
+from spacing_type import SpacingType
 
 
 def _load_toml() -> dict:
@@ -80,6 +81,13 @@ class Config:
                                            '"', "(", "[", "{", "`", "'"])
         self.ignored_trailing = get_general(
             "ignored_trailing",  ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","])
+
+        spacing_type = get_general("spacing_type", "normal")
+        try:
+            self.spacing_type = SpacingType(spacing_type)
+        except ValueError:
+            print(spacing_type, "is not a valid spacing type, defaulting to normal")
+            self.spacing_type = SpacingType.NORMAL
 
         self.port = get_ipc("port", 8765)
         self.host = get_ipc("host", "127.0.0.1")

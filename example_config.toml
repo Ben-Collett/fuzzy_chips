@@ -36,6 +36,16 @@
 # these rules only apply to chips which are mapped to strings if a chip maps to a list then it will not obey ignore_leading and ignore_trailing and will only expand for an exact match
 "ignored_leading" = ['"', "(", "[", "{", "`", "'"]
 "ignored_trailing" = ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","]
+# normal-> best for natural language, code-> nice for coding breaks some natural language use cases
+# if code spacing is used then the casing of the current word is detected and used
+# so if you have something in cammel case like "helloT" and you press space it would expand to "helloThe"
+# this breaks the use case like this tH would normally expand to something like That but instead would expand to tHere
+# this allows you to modify in the middle of words as well and also supports snake casing, when spacing after typing something at the
+# end of a snake cased variable it will type an _ until you hit space again
+# so hello_there+space becomes hello_there_ if you do space again it becomes "hello_there "
+# if you press space when doing cammel case if it wouldn't change anything then it will just put a space between the words or afterwards if it would expand something then it will expand and not insert a space
+# propercase and UPPER_SNAKE_CASE are also detected and supported kebab is not currently
+"spacing_type" = "normal"
 
 [ipc]
 # uses a tcp socket
