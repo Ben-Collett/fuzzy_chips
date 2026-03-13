@@ -68,9 +68,10 @@ class IPCServer:
         print(f"IPC server listening on {self.host}:{self.port}")
 
         try:
+
+            self.server_socket.settimeout(.01)
             while self.running:
                 try:
-                    self.server_socket.settimeout(1.0)
                     client_socket, addr = self.server_socket.accept()
                     # client_socket.settimeout(5.0)
 

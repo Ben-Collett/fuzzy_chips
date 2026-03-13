@@ -17,6 +17,8 @@ from expansion_utils import get_chip_result
 from expansion_utils import expand_code_casing, valid_chip
 import keyboard
 
+import signal
+
 keyboard.init(
     linux_collision_safety_mode=keyboard.LinuxCollisionSafetyModes.PATIENT)
 
@@ -122,7 +124,10 @@ def delete_previous_word(*args):
 
     back_count = determine_amount_to_backspace_shift_backspace(buffer)
     to_write = ""
-    if current_casing.is_not_normal_casing and len(buffer) - back_count - len(_buffer.get_leading_white_space()) > 1:
+    if (
+        current_casing.is_not_normal_casing
+        and len(buffer) - back_count - len(_buffer.get_leading_white_space()) > 1
+    ):
         to_write = " "
     backspace_then_write(back_count, to_write, update_expected=True)
 
@@ -290,12 +295,10 @@ def handle_code_spacing(white_space: str, word: str, config: Config):
 
     count = 0
     if right_part != "" or not valid_chip(left_part, config):
-
-        to_write, count = expand_code_casing(
-            left_part, right_part, config)
+        to_write, count = expand_code_casing(left_part, right_part, config)
 
     if to_write is not None or count > 0:
-        backspace_then_write(count+1, to_write, update_expected=True)
+        backspace_then_write(count + 1, to_write, update_expected=True)
         return True
 
     return False
@@ -449,12 +452,18 @@ def main():
     ipc_server = IPCServer(command_processor)
     ipc_server.start()
 
+    def sigint_handler(signum, frame):
+        _terminate()
+
+    original_handler = signal.signal(signal.SIGINT, sigint_handler)
+
     keyboard.hook(process_event_wrapper)
     try:
         stop_event.wait()
     except KeyboardInterrupt:
         pass
     finally:
+        signal.signal(signal.SIGINT, original_handler)
         ipc_server.stop()
 
 
