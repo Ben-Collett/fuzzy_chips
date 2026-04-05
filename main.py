@@ -9,12 +9,14 @@ from ipc_server import IPCServer
 from commands import make_processor
 from command_processor import CommandProcessor
 from utils import down_modifiers, to_utf, is_str
-from utils import backspaces_to_delete_previous_word, shift_press_release
+from utils import backspaces_to_delete_previous_word
 from threading import Event
-from buffer import RingBuffer
+from buffer import KeyBuffer
 from config import current_config, Config
-from expansion_utils import get_chip_result
-from expansion_utils import expand_code_casing, valid_chip
+from expansion_utils import get_chip_result, shift_press_release
+from expansion_utils import expand_code_casing, is_valid_chip_str, determine_code_casing
+from expansion_utils import expand_new
+from utils import is_all_non_alphanumeric_str
 import keyboard
 
 import signal
@@ -25,8 +27,8 @@ keyboard.init(
 stop_event = threading.Event()
 current_casing: Casing = Casing.NORMAL
 expected_counter = 0
-_buffer = RingBuffer(100)
-_right_arrow_buffer = RingBuffer(100)
+_buffer = KeyBuffer(100)
+_right_arrow_buffer = KeyBuffer(100)
 just_set = Event()
 
 
@@ -45,14 +47,16 @@ def clear_buffer(*args):
     _right_arrow_buffer.clear()
 
 
-def move_last(source: RingBuffer, target: RingBuffer):
+def move_last(source: KeyBuffer, target: KeyBuffer):
     if not source.is_empty():
-        target.add(source.backspace())
+        target.add_entry(source.backspace_entry())
 
 
 def set_buffer(args, buffer):
     just_set.set()
-    buffer.set_buffer(args)
+
+    if not buffer.is_equal(args):
+        buffer.set_buffer(args, recent=False)
 
 
 def set_main_buffer(args):
@@ -61,6 +65,7 @@ def set_main_buffer(args):
 
 def set_buffer_right(args):
     set_buffer(args[::-1], _right_arrow_buffer)
+    print("set right", args)
 
 
 def write(text: str | list[str]):
@@ -217,10 +222,14 @@ def handle_if_release_event(event: keyboard.KeyboardEvent, toggle_case_on):
     released_key = event.event_type == keyboard.KEY_UP
     name = event.name
     if released_key:
+
         name_equals_prev = prev_real_event and prev_real_event.name == name
         manual_typing = expected_counter == 0
         if name_equals_prev and name in toggle_case_on and manual_typing:
-            back_count, to_write = shift_press_release(_buffer.get())
+            word = _buffer.get_last_word()
+            white_space = _buffer.get_trailing_white_space()
+
+            back_count, to_write = shift_press_release(word, white_space)
             backspace_then_write(back_count, to_write, update_expected=True)
         return True
     return False
@@ -263,8 +272,8 @@ def handle_clear(name, config, meta_down, ctrl_down, alt_down):
 def add_utf_and_update_expected(utf: str | None):
     global expected_counter
     if utf is not None and (utf.isprintable() or utf.isspace()):
+        _buffer.add(utf, recent=expected_counter == 0)
         decrement_expected_counter()
-        _buffer.add(utf)
 
 
 def handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
@@ -280,22 +289,52 @@ def handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
     return False
 
 
-def handle_code_spacing(white_space: str, word: str, config: Config):
+def handle_new_space(left_part: str, right_part: str, white_space: str, new_flags: list[bool], config: Config) -> bool:
+    if config.spacing_type != SpacingType.NEW:
+        return False
+    to_write, back_count = expand_new(
+        left_part, new_flags, white_space, right_part, config)
+
+    if back_count == 0 and to_write is None:
+        return False
+
+    backspace_then_write(back_count+1, to_write)
+
+    return True
+
+
+def get_right_word() -> str:
+    # right buffer is reversed
+
+    if len(_right_arrow_buffer.get_trailing_white_space()) == 0:
+        return _right_arrow_buffer.get_word(-1)[::-1]
+    return ""
+
+
+def get_left_right_part(word: str) -> (str, str):
+    """
+    word = last word in left buffer
+    white space = leading white space in left buffer
+    uses _right_buffer to computer the right_part
+    the _buffer isn't used automaticlaly for optimization
+    """
+    left_part = word
+    right_part = get_right_word()
+    return left_part, right_part
+
+
+def handle_code_spacing(left_part, right_part, white_space, config: Config):
     if config.spacing_type != SpacingType.CODE:
         return False
-    # can output none
-    left_part = ""
-    right_part = ""
+    if len(white_space) > 1:
+        left_part = ""
 
-    if len(white_space) == 1:
-        left_part = word
-    if len(_right_arrow_buffer.get_trailing_white_space()) == 0:
-        # right buffer is reversed
-        right_part = _right_arrow_buffer.get_word(-1)[::-1]
+    if right_part == "" and is_valid_chip_str(left_part, config):
+        return False
 
-    count = 0
-    if right_part != "" or not valid_chip(left_part, config):
-        to_write, count = expand_code_casing(left_part, right_part, config)
+    casing = determine_code_casing(left_part, right_part)
+
+    to_write, count = expand_code_casing(left_part, right_part, casing, config)
 
     if to_write is not None or count > 0:
         backspace_then_write(count + 1, to_write, update_expected=True)
@@ -348,13 +387,14 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
             return True
 
         prev_whitespace = _buffer.get_white_space_before_prev_word()
-        word = _buffer.get_prev_word()
+        word, flags = _buffer.get_word_and_new_state(-1)
         prev_word = _buffer.get_word(-2)
 
         # handle appending punctuation at end of previous word
         if not shift_down and handle_space_punctuation(
             word, append_chars, white_space, prev_whitespace
         ):
+
             return True
 
         # only want to expand chip if there is only 1 ' '
@@ -362,8 +402,14 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
 
         to_write = None
         if process_chip:
-            if handle_code_spacing(white_space, word, config):
-                return True
+            if current_casing == Casing.NORMAL:
+                left_part, right_part = get_left_right_part(word)
+                skip = is_all_non_alphanumeric_str(left_part)
+                if not skip and handle_new_space(left_part, right_part, white_space, flags, config):
+                    return True
+
+                if not skip and handle_code_spacing(left_part, right_part, white_space, config):
+                    return True
 
             to_write = get_chip_result(word, config)
 
@@ -439,10 +485,13 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
     add_utf_and_update_expected(utf)
 
 
-def process_event_wrapper(event):
+def process_event_wrapper(event: keyboard.KeyboardEvent):
     global prev_real_event
+    should_update_new = expected_counter == 0 and event.name == "space" and event.event_type == keyboard.KEY_DOWN
     _process_event(event)
     just_set.clear()
+    if should_update_new:
+        _buffer.mark_recent_as_old()
     if expected_counter == 0:
         prev_real_event = event
 

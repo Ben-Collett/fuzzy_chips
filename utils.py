@@ -1,6 +1,7 @@
 from collections import deque
 from keyboard import KeyboardEvent, KEY_DOWN
 from modifiers import SHIFT, CTRL, ALT, WINDOWS
+from functools import lru_cache
 
 
 def print_debug(*args, **kwargs):
@@ -40,8 +41,26 @@ def end_with_count(itr, val):
     return count
 
 
+@lru_cache
+def compute_upper_count(s: str) -> int:
+    return sum(1 for c in s if c.isupper())
+
+
+def reversed_range(itr):
+    return range(len(itr)-1, -1, -1)
+
+
+def reverse_enumerate(s):
+    for i in reversed_range(s):
+        yield i, s[i]
+
+
 def is_str(obj):
     return isinstance(obj, str)
+
+
+def is_all_non_alphanumeric_str(s: str):
+    return not any(ch.isalnum() for ch in s)
 
 
 def to_utf(event: KeyboardEvent, shift_down):
@@ -61,68 +80,6 @@ def to_utf(event: KeyboardEvent, shift_down):
 
 def alpha_numericish(ch: str):
     return ch.isalnum() or ch == "'"
-
-
-"""
-this is cool -> nothing special captlize prev word or current word
-EX: this is cool -> this is Cool
-this-is-cool -> stop when you hit a nonspecial non _ character and captlize thefirst letter of that word(last thing in stack)
-EX: this-is-cool-> this-is-Cool
-hat=dog, captlize dog because non-alpha sperator rule same with hat+dog
-EX: hot=dog -> hot=Dog
-thisIsCool -> same rulse as normal case and separator should cover this case aswell
-EX: thisIsCool -> ThisIsCool
-hot_dog-> if we hit _ stop and next special character or " ", swap case of whatever came before all upp or all down
-with the exception of a starting _ so that things like dart private scope works nicely.
-EX: hot_dog -> HOT_DOG -> hot_dog, _randomDog -> _RandomDog->_randomDog, _hot_dog -> _HOT_DOG
-
-if it is split on a - or + or something toggle only the last word
-simple rule, get last word if it contains _ as first alpha numeric toggle the whole word
-unless it is just at the start
-if there is only one word or it's just a space or camel toggle the case of the first letter
-"""
-
-
-def shift_press_release(buffer: list[str]) -> (int, str):
-
-    if not buffer:
-        return 0, ""
-
-    queue = deque()
-    i = len(buffer) - 1
-    backspace_count = 0
-
-    while i >= 0 and not buffer[i].isalnum():
-        queue.appendleft(buffer[i])
-        backspace_count += 1
-        i -= 1
-
-    toggle_whole_word = False
-    while i >= 0 and buffer[i] != " ":
-        if buffer[i] == "_" and i >= 1 and buffer[i-1] != " ":
-            toggle_whole_word = True
-        elif not alpha_numericish(buffer[i]):
-            break
-
-        backspace_count += 1
-        queue.appendleft(buffer[i])
-        i -= 1
-
-    if toggle_whole_word:
-        # Check case of the leftmost character
-        left = queue[0]
-
-        if left.isupper():
-            # lowercase entire queue
-            queue = deque(ch.lower() for ch in queue)
-        else:
-            # uppercase entire queue
-            queue = deque(ch.upper() for ch in queue)
-    else:
-        # Toggle only the leftmost character
-        ch = queue.popleft()
-        queue.appendleft(ch.swapcase())
-    return backspace_count, "".join(queue)
 
 
 """

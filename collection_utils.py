@@ -72,6 +72,20 @@ def no_overlap(iter1, iter2):
     return True
 
 
+def toggle_captlize_word(s: str):
+    if s == "":
+        return s
+    if s[0].islower():
+        return captlize(s)
+    return uncaptlize(s)
+
+
+def toggle_all_caps(s: str):
+    if s.islower():
+        return s.upper()
+    return s.lower()
+
+
 def captlize(s: str):
     if len(s) <= 1:
         return s.upper()

@@ -1,28 +1,29 @@
-# NOTE: all general settings shown are set equal to their default behavior so if you want the described functionality you don't need  to override that key
-
+# NOTE: all general/code settings shown are set equal to their default behavior so if you want the described functionality you don't need  to override that key
 [general]
 # will toggle the case of the previous or current word when you press and release shift without hitting any characters in between.
-"toggle_case_on" = ["shift"]
+toggle_case_on = ["shift"]
 # clear_buffer_on: clears the internal buffer of fuzzy chips when you press the windows key
 # left,right, up,down are all arrow keys and windows_down test if the windows/meta/gui key is down "alt_down", "ctrl_down" are also options do the same thing for their respective modifier,
 # be mindful of however you keyremapper handles keyoverloading if you use one
 # for example I use keyd and if I press right shift it will hold down alt if I release it without typing anything else it will type ?
 # that means the buffer gets cleared and it would mess with append_chars if I had alt_down in my config to clear the buffer
 # Also keep in mind using clear_on_buffer will interfere with toggle_case_on if you put the same key in both
-"clear_buffer_on" = ["windows_down", "ctrl_down", "alt_down"]
+clear_buffer_on = ["windows_down", "ctrl_down", "alt_down"]
 # same as clear_buffer_on unless using ipc if the buffer was just set by ipc then the event won't clear the buffer
-"just_set_safe_clear" = ["up", "down"]
+just_set_safe_clear = ["up", "down"]
 # append_chars have special behavior depending on the setting of auto_append
 # if true when pressing an append char it will be automatically appended to the previous word in the buffer and white space will be restored
 # if false then it won't append until you press space and will fail to do so if you press shift+space
 # you probably don't want to auto append when working with shells and programming
-"append_chars" = [".", "!", "?", ",", ";", ")", "]", "}"]
-"auto_append" = false
+append_chars = [".", "!", "?", ",", ";", ")", "]", "}"]
+auto_append = false
 # if the previous word ends with one of these characters then the current word will be capitalized once you hit space
-"capitalize_after" = [".", "!", "?"]
+capitalize_after = [".", "!", "?"]
+# timeout in milliseconds for buffer state deduplication - prevents buffer from being set to the same state within this time window
+buffer_state_timeout_ms = 1
 # passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized
 # where as 'hi' it will not
-"captlize_passthrough" = ['"', "'", "`"]
+captlize_passthrough = ['"', "'", "`"]
 # WARNING: these options are a little more complicated
 # they allow you to ignore certain leading and trailing characters for chip expansion, for example:
 # if you have hv = have, you probably want "hv to expand to "have and "hv" to expand to "have", this allows you to do that without defining extra chips for every case
@@ -34,9 +35,16 @@
 # if you are going to do so then avoid defining chips which are single letters when you have a variant with one of the ignore characters.
 # for example if you define a chip t= the, I would advise against defining 't = anything.
 # these rules only apply to chips which are mapped to strings if a chip maps to a list then it will not obey ignore_leading and ignore_trailing and will only expand for an exact match
-"ignored_leading" = ['"', "(", "[", "{", "`", "'"]
-"ignored_trailing" = ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","]
-# normal-> best for natural language, code-> nice for coding breaks some natural language use cases
+ignored_leading = ['"', "(", "[", "{", "`", "'"]
+ignored_trailing = ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","]
+
+# these settings are only useful for writing code, not natural language
+[code]
+# WARNING: these setting does nothing when not in normal casing mode.
+# normal -> best for natural language
+# code -> nice for coding breaks some natural language use cases
+# new -> also nice for coding work well with fuzzychips and with chording systems.
+#
 # if code spacing is used then the casing of the current word is detected and used
 # so if you have something in cammel case like "helloT" and you press space it would expand to "helloThe"
 # this breaks the use case like this tH would normally expand to something like That but instead would expand to tHere
@@ -45,7 +53,22 @@
 # so hello_there+space becomes hello_there_ if you do space again it becomes "hello_there "
 # if you press space when doing cammel case if it wouldn't change anything then it will just put a space between the words or afterwards if it would expand something then it will expand and not insert a space
 # propercase and UPPER_SNAKE_CASE are also detected and supported kebab is not currently
-"spacing_type" = "normal"
+#
+# new spacing works similar to code spacing except it uses only new characters typed and will treat the new characters typed as a whole word
+# so if you have hello_there_person
+# and you type hello_th<t space>ere_person it will expand to hello_th_the_ere_person
+# cammel,snake,UPPER_SNAKE,ProperCase, normal are all supported
+spacing_type = "normal"
+# this setting only applies to new mode, everything typed except when detected otherwise will be assumed to be in this mode
+# ex: if it is set to cammel casing then "hello_there<t space>" will still expand to hello_there_the
+# however "hello<t space>" will expand to helloThe
+# values snake, camel, upper snake, normal
+assumed_casing = "normal"
+
+# space on new is when true measn that if nothing chegss as a result of hitting space when using new mode it will just space forward
+# the only real reason to them this to false is if you are using charachroder with autocorrect it can be convenient since you would have to use
+# two spaces to move forward instead of one when dealing with code so autocorrect won't backspace your regular text
+space_on_new = true
 
 [ipc]
 # uses a tcp socket
@@ -86,22 +109,21 @@ ipc_enabled_commands = [
 "'s" = ["backspace", "'", "s", "space"]
 "n't" = ["backspace", "n", "'", "t", "space"]
 "'l" = ["backspace", "'", "l", "l", "space"]
-"rl" = ["reload_config"]
+
+# in toml you can choose to put keys in quotes unless there are special characters like ' or . I would recommend putting all chips in quotes
+# for consistency but it is entirely optional
+rl = ["reload_config"]
 "qui" = ["quit"]
 "ras" = ["restart"]
 "cl" = ["clear_buffer"]
+
 "-" = ["kebab-case-mode"]
 "nm" = ["normal case mode"]
 "_" = ["snake_case_mode"]
 "__" = ["UPPER_SNAKE_CASE_MODE"]
 "pm" = ["ProperCaseMode"]
 "cmm" = ["camelCaseMode"]
-# "c(" = ["backspace", "shift", "(", ")"] # buged doesn't handle captlizeding for ()
-# "tpw" = [
-#   "prev_word_toggle_case",
-#   "prev_word_toggle_case",
-#   "prev_word_toggle_case"
-# ]
+
 "t," = "this is dumb, but legal and useful for testing"  # just keep in mind if you do this and you have auto append on and , set to append you better hit t before ,
 # you can use to to make typing a word order independent, example ta = at or toni = into
 "at" = "at"
@@ -134,6 +156,7 @@ ipc_enabled_commands = [
 "by" = "by"
 "up" = "up"
 "or" = "or"
+"ag" = "anything"
 "go" = "go"
 "he" = "he"
 "me" = "me"

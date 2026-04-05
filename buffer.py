@@ -1,30 +1,54 @@
 from collections import deque
+from dataclasses import dataclass
 
 
-class RingBuffer:
+@dataclass
+class BufferEntry:
+    char: str
+    recent: bool
+
+
+class KeyBuffer:
     def __init__(self, capacity: int):
         self.capacity = capacity
-        self.buffer = deque(maxlen=capacity)
+        self.buffer: deque[BufferEntry] = deque(maxlen=capacity)
+
+    def mark_recent_as_old(self):
+        for i, entry in enumerate(self.buffer):
+            self.buffer[i] = BufferEntry(entry.char, recent=False)
 
     def remove_first(self):
         if not self.is_empty():
             self.buffer.popleft()
 
-    def set_buffer(self, items):
-        self.buffer.clear()
-        for item in items:
-            self.buffer.append(item)
+    def is_equal(self, items):
+        return self.get() == list(items)
 
-    def add(self, item):
+    def clear(self):
+        self.buffer.clear()
+
+    def set_buffer(self, items, recent=True):
+        self.clear()
+        self.add_all(items, recent)
+
+    def add_all(self, items, recent=True):
+        for item in items:
+            self.add(item, recent)
+
+    def add_entry(self, entry: BufferEntry):
+        """Add entry to the buffer (removes oldest if full)"""
+        self.buffer.append(entry)
+
+    def add(self, item, recent=True):
         """Add item to the buffer (removes oldest if full)"""
-        self.buffer.append(item)
+        self.add_entry(BufferEntry(item, recent))
 
     def get(self):
         """Get the current buffer as a list"""
-        return list(self.buffer)
+        return [entry.char for entry in self.buffer]
 
     def __str__(self):
-        return str(self.buffer)
+        return str(self.get())
 
     def get_word_count(self) -> int:
         """
@@ -48,29 +72,27 @@ class RingBuffer:
 
         return count
 
-    def get_word(self, index: int) -> str:
+    def get_word_entries(self, index: int) -> list[BufferEntry]:
         """
-        Get the word at the given index.
+        Get the word entries at the given index.
         Supports negative indexing (-1 = last word).
-        Returns an empty string if index is out of range.
+        Returns an empty list if index is out of range.
         """
-        chars = self.get()
-        if not chars:
-            return ""
+        if not self.buffer:
+            return []
 
+        chars = self.get()
         words: list[tuple[int, int]] = []
         i = 0
         n = len(chars)
 
         while i < n:
-            # Skip whitespace
             while i < n and chars[i].isspace():
                 i += 1
             if i >= n:
                 break
 
             start = i
-            # Consume word
             while i < n and not chars[i].isspace():
                 i += 1
             end = i - 1
@@ -78,17 +100,36 @@ class RingBuffer:
             words.append((start, end))
 
         if not words:
-            return ""
+            return []
 
-        # Handle negative indexing
         if index < 0:
             index += len(words)
 
         if index < 0 or index >= len(words):
-            return ""
+            return []
 
         start, end = words[index]
-        return ''.join(chars[start:end + 1])
+        return list(self.buffer)[start: end + 1]
+
+    def get_word(self, index: int) -> str:
+        """
+        Get the word at the given index.
+        Supports negative indexing (-1 = last word).
+        Returns an empty string if index is out of range.
+        """
+        entries = self.get_word_entries(index)
+        return "".join(e.char for e in entries)
+
+    def get_word_and_new_state(self, index: int) -> tuple[str, list[bool]]:
+        """
+        Get the word at the given index and whether each character is new.
+        Supports negative indexing (-1 = last word).
+        Returns (word, is_new_list) tuple.
+        """
+        entries = self.get_word_entries(index)
+        word = "".join(e.char for e in entries)
+        is_new_list = [e.recent for e in entries]
+        return word, is_new_list
 
     def get_leading_white_space(self) -> str:
         buffer: list[str] = self.get()
@@ -100,7 +141,7 @@ class RingBuffer:
         if end == 0:
             return ""
 
-        return "".join(buffer[0:end+1])
+        return "".join(buffer[0: end + 1])
 
     def get_white_space_before_prev_word(self) -> str:
         chars = self.get()
@@ -123,7 +164,7 @@ class RingBuffer:
             i -= 1
 
         start = i + 1
-        return ''.join(chars[start:end + 1])
+        return "".join(chars[start: end + 1])
 
     def get_trailing_white_space(self) -> str:
         chars: list[str] = self.get()
@@ -140,11 +181,11 @@ class RingBuffer:
         elif lower == 0 and not chars[lower].isspace():
             lower += 1
 
-        return ''.join(chars[lower:upper+1])
+        return "".join(chars[lower: upper + 1])
 
     def should_captlize_prev_word(self, captilize_after=[], pass_through=[]) -> bool:
         chars: list[str] = self.get()
-        target_range = RingBuffer._get_prev_word_range(chars)
+        target_range = KeyBuffer._get_prev_word_range(chars)
         if target_range is None:
             return False
         lower, _ = target_range
@@ -157,8 +198,11 @@ class RingBuffer:
             lower -= 1
         return chars[lower] in captilize_after
 
-    def get_prev_word(self) -> str:
+    def get_last_word(self) -> str:
         return self.get_word(-1)
+
+    def get_prev_word_entries(self) -> list[BufferEntry]:
+        return self.get_word_entries(-1)
 
     @staticmethod
     def _get_prev_word_range(chars: list[str]):
@@ -172,15 +216,16 @@ class RingBuffer:
             return None
         lower = 0
         for i in range(upper, 0, -1):
-            if chars[i] == ' ':
-                lower = i+1
+            if chars[i] == " ":
+                lower = i + 1
                 break
         return (lower, upper)
 
-    def clear(self):
-        self.buffer.clear()
+    def backspace(self) -> str:
+        if not self.is_empty():
+            return self.buffer.pop().char
 
-    def backspace(self):
+    def backspace_entry(self) -> BufferEntry:
         if not self.is_empty():
             return self.buffer.pop()
 
@@ -190,7 +235,7 @@ class RingBuffer:
     def get_last(self):
         """Get the last inserted value"""
         if not self.is_empty():
-            return self.buffer[-1]
+            return self.buffer[-1].char
         else:
             return None  # Return None if buffer is empty
 

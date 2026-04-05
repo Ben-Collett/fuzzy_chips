@@ -3,6 +3,9 @@ import os
 from frozen_dict import FrozenDict
 from my_config_manager import config_manager
 from spacing_type import SpacingType
+from casing import Casing
+from constants import DEFAULT_PORT, LOCAL_HOST
+from errors import parse_assumed_casing_error_message
 
 
 def _load_toml() -> dict:
@@ -37,25 +40,38 @@ def _chip_map(chips) -> dict[FrozenDict[str], str]:
     return out
 
 
+def _get_section(section, config_map):
+    if section in config_map:
+        return config_map[section]
+    return {}
+
+
+def _get_from_toml(section, name, config_map, default=None):
+    if section in config_map and name in config_map[section]:
+        return config_map[section][name]
+    return default
+
+
 class Config:
-    def __init__(self, config_map):
+    def __init__(self, config_map=None):
         self.update(config_map)
 
     def reload(self):
         self.update(_load_toml())
 
-    def update(self, config_map):
+    def update(self, config_map=None):
+        config_map = config_map or {}
+
+        def get_code(name, default=None):
+            return _get_from_toml("code", name, config_map, default)
+
         def get_general(name, default=None):
-            if "general" in config_map and name in config_map["general"]:
-                return config_map["general"][name]
-            return default
+            return _get_from_toml("general", name, config_map, default)
 
         def get_ipc(name, default=None):
-            if "ipc" in config_map and name in config_map["ipc"]:
-                return config_map["ipc"][name]
-            return default
+            return _get_from_toml("ipc", name, config_map, default)
 
-        self.chip_map = _chip_map(config_map["chips"])
+        self.chip_map = _chip_map(_get_section("chips", config_map))
         self.append_chars = get_general(
             "append_chars", [".", ",", "!", "?", ";"])
         self.capitalize_after = get_general(
@@ -82,16 +98,18 @@ class Config:
         self.ignored_trailing = get_general(
             "ignored_trailing",  ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","])
 
-        spacing_type = get_general("spacing_type", "normal")
-        try:
-            self.spacing_type = SpacingType(spacing_type)
-        except ValueError:
-            print(spacing_type, "is not a valid spacing type, defaulting to normal")
-            self.spacing_type = SpacingType.NORMAL
+        spacing_type = get_code("spacing_type", "normal")
+        self.spacing_type = SpacingType.safe_from_str(
+            spacing_type, default=SpacingType.NORMAL, print_on_err=True)
 
-        self.port = get_ipc("port", 8765)
-        self.host = get_ipc("host", "127.0.0.1")
-        self.ipc_enabled_commands = get_ipc("ipc_enabled_commands", [])
+        assumed_casing = get_code("assumed_casing", "normal")
+        self.assumed_casing = Casing.safe_from_str(
+            assumed_casing, default=Casing.NORMAL, generate_err_message=parse_assumed_casing_error_message)
+        self.space_on_new = get_code("space_on_new", True)
+        self.port = get_ipc("port", DEFAULT_PORT)
+        self.host = get_ipc("host", LOCAL_HOST)
+        self.ipc_enabled_commands = get_ipc("ipc_enabled_commands", default=[])
+        self.buffer_state_timeout_ms = get_general("buffer_state_timeout_ms", 1)
 
 
 current_config = Config(_load_toml())

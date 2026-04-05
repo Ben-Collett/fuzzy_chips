@@ -2,6 +2,7 @@ from enum import Enum
 from collection_utils import no_overlap, ends_with_any, starts_with_alnum
 from collection_utils import ends_with_alnum, is_not_empty_str, starts_with_any
 from collection_utils import captlize, uncaptlize, start_overlap_length, last_char
+from utils import compute_upper_count
 DASHES = {"\u002d",  # -
           "\u2010",  # hyphen
           "\u2011",  # non-breaking hyphen
@@ -31,9 +32,113 @@ class Casing(Enum):
     def is_not_normal_casing(self):
         return self != Casing.NORMAL
 
+    @staticmethod
+    def safe_from_str(casing: str, default=NORMAL, generate_err_message=None):
+        out = None
+        try:
+            out = Casing(casing)
+        except ValueError:
+            if generate_err_message:
+                print(generate_err_message(casing, default))
+            out = default
+
+        return out
+
 
 def is_dash(ch: str) -> bool:
     return ch in DASHES
+
+
+def is_all_caps(s: str):
+    """
+    if a character is not upper/lower like a number it is treated
+    as an a capitial, returns true for an empty string
+    """
+    for ch in s:
+        if ch.islower():
+            return False
+    return True
+
+
+def _first_letter_is_upper(s: str):
+    for ch in s:
+        if ch.isalpha():
+            return ch.isupper()
+    return False
+
+
+def _upper_before_non_underscore_special(s, on_empty=False):
+    for ch in s:
+        print(ch)
+        if not ch.isalnum() and ch != "_":
+            return False
+        elif ch.isupper():
+            return True
+    return on_empty
+
+
+def _upper_trailing_non_underscore_special(s: str, on_empty=False):
+    return _upper_before_non_underscore_special(reversed(s), on_empty)
+
+
+def _empty_or_upper(s: str):
+    return s == "" or s.isupper()
+
+
+def determine_code_casing(left_part: str, right_part: str, on_private_assume=Casing.SNAKE) -> Casing:
+    """
+    tries to determine casing type
+    from the contents to the left and right of the current curosr
+    does not handle kebab case
+    """
+
+    # handles edgecase where variable separated by operator like hi_this= 2
+    for ch in reversed(left_part):
+        if not ch.isalnum() and ch != "_":
+            return Casing.NORMAL
+        elif ch.isalpha():
+            break
+
+    # need to handle starting with _ sepratly because languages like dart
+    # uses _ at the start of camel and propercasing
+    is_likely_private = left_part.startswith("_")
+
+    if left_part.startswith("_"):
+        left_part = left_part[1:]
+    is_snake = "_" in right_part or "_" in left_part
+
+    if is_snake:
+        print(left_part, right_part)
+        left_upper = _upper_trailing_non_underscore_special(
+            left_part, on_empty=True)
+        print(left_upper)
+        upper = left_upper and _upper_before_non_underscore_special(
+            right_part, on_empty=True)
+        if upper:
+            return Casing.UPPER_SNAKE
+        return Casing.SNAKE
+
+    if _empty_or_upper(left_part) and _empty_or_upper(right_part):
+        if is_likely_private and (left_part.isupper() or right_part.isupper()):
+            return Casing.UPPER_SNAKE
+        return Casing.NORMAL
+
+    start_is_upper = _first_letter_is_upper(left_part)
+
+    upper_count = compute_upper_count(
+        left_part) + compute_upper_count(right_part)
+
+    if start_is_upper:
+        upper_count -= 1
+        if upper_count > 0:
+            return Casing.PROPER
+
+    if upper_count > 0:
+        return Casing.CAMEL
+
+    if is_likely_private:
+        return on_private_assume
+    return Casing.NORMAL
 
 
 def convert_casing(to_write, word, prev_word, prev_whitespace, casing: Casing):

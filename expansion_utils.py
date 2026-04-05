@@ -1,19 +1,13 @@
 from frozen_dict import FrozenDict
-from casing import Casing
+from casing import Casing, determine_code_casing
 from collection_utils import count_where,  captlize, is_not_empty_str
+from collection_utils import toggle_all_caps, toggle_captlize_word
 from typing import Optional
-from utils import is_str
+from utils import is_str, compute_upper_count, reverse_enumerate
+from utils import reversed_range, is_str
 from config import Config
-from functools import lru_cache
 
 
-@lru_cache
-def _upper_count(s: str) -> int:
-    return sum(1 for c in s if c.isupper())
-
-
-def empty_or_upper(s: str):
-    return s == "" or s.isupper()
 # this name kind of sucks
 
 
@@ -44,7 +38,11 @@ def _extract_ignored_leading_word_trailing(word: str, config):
     return leading_str, word, trailing_str
 
 
-def valid_chip(freq, config: Config):
+def is_valid_chip_str(s: str, config: Config):
+    return valid_chip(FrozenDict.from_string(s), config)
+
+
+def valid_chip(freq: FrozenDict, config: Config):
     return freq in config.chip_map.keys()
 
 
@@ -108,57 +106,17 @@ def _last_capital_segment(s: str) -> str:
     return s
 
 
-def first_letter_is_upper(s: str):
-    for ch in s:
-        if ch.isalpha():
-            return ch.isupper()
-    return False
+def _last_snake_part(left_part):
+    parts = left_part.split("_")
+    last_part = parts[-1] if parts else ""
+    return last_part
 
 
-def get_casing_type(left_part: str, right_part: str) -> Casing:
-    """
-    tries to determine casing type
-    from the contents to the left and right of the current curosr
-    does not handle kebab case
-    """
-
-    # handles edgecase where variable separated by operator like hi_this= 2
-    for ch in reversed(left_part):
-        if not ch.isalnum() and ch != "_":
-            return Casing.NORMAL
-        elif ch.isalpha():
-            break
-
-    is_snake = "_" in left_part or "_" in right_part
-
-    upper = left_part.isupper() and right_part.isupper()
-    if is_snake and upper:
-        return Casing.UPPER_SNAKE
-    if is_snake:
-        return Casing.SNAKE
-
-    if empty_or_upper(left_part) and empty_or_upper(right_part):
-        return Casing.NORMAL
-    start_is_upper = first_letter_is_upper(left_part)
-
-    count = _upper_count(left_part) + _upper_count(right_part)
-
-    if start_is_upper:
-        count -= 1
-        if count > 0:
-            return Casing.PROPER
-
-    if count > 0:
-        return Casing.CAMEL
-
-    return Casing.NORMAL
+def starts_with_alnum(s: str):
+    return is_not_empty_str(s) and s[0].isalnum()
 
 
-def is_proper_case() -> bool:
-    return False
-
-
-def expand_snake_and_upper_snake_case(left_part: str, right_part: str, config: Config) -> (str, int):
+def expand_snake_and_upper_snake_case(left_part: str, right_part: str, casing: Casing, config: Config, force_prepend="", remove_trailing=True) -> (list[str], int):
     trail_count = 0
     for ch in reversed(left_part):
         early_exit = False
@@ -172,37 +130,51 @@ def expand_snake_and_upper_snake_case(left_part: str, right_part: str, config: C
             break
 
     # removes a single trailing underscore
-    if trail_count == 1:
-        return " ", 1
+    # if to or more underscores don't remove but space forward
+    if remove_trailing and trail_count == 1:
+        return [" "], 1
+    elif trail_count >= 1:
+        if config.space_on_new:
+            return [" "], 0
+        else:
+            return [], 0
+
     # shouldn't expand
     if early_exit:
-        return None, 0
+        return [], 0
 
-    to_expand = None
+    to_expand = _last_snake_part(left_part)
     append = ""
 
-    parts = left_part.split("_")
-    to_expand = parts[-1] if parts else ""
-    if not right_part.startswith("_"):
+    if starts_with_alnum(right_part):
         append = "_"
 
     expanded = _expand(to_expand.lower(), config)
 
-    # ASSUMING_UPPER_SNAKE_CASING
-    if left_part.isupper() or right_part.isupper():
+    if casing == Casing.UPPER_SNAKE:
         expanded = expanded.upper()
+
+    expanded = force_prepend+expanded
 
     if expanded == to_expand:
         expanded = ""
         to_expand = ""
-
     out = expanded + append
+    if out == "" and right_part.startswith("_"):
+        return [" "], 0
     return list(out), len(to_expand)
 
 
-def expand_cammel_and_proper_case(left_part: str, right_part: str, config: Config):
-    luc = _upper_count(left_part)
-    ruc = _upper_count(right_part)
+def expand_cammel_and_proper_case(left_part: str, right_part: str, config: Config, force_proper=False, space_on_no_change=True) -> (list[str], int):
+    """
+    returns to write, the amount to backspace, and if the expansion output was a list.
+    """
+    luc = compute_upper_count(left_part)
+    ruc = compute_upper_count(right_part)
+
+    private = left_part.startswith("_")
+    if private:
+        left_part = left_part[1:]
 
     lf = _last_capital_segment(left_part)
     expanded = _expand(lf.lower(), config)
@@ -212,26 +184,193 @@ def expand_cammel_and_proper_case(left_part: str, right_part: str, config: Confi
     if len(lf) > 0 and lf[0].isupper():
         upper_count -= 1
 
-    # assuming camelCase continuation
-    if is_not_empty_str(right_part) and right_part[0].islower():
+    if not is_str(expanded):
+        return expanded, len(lf)
+
+    if force_proper or _starts_with_upper(left_part) or len(lf) < len(left_part):
+        expanded = expanded[0].upper() + expanded[1:]
+
+    if _starts_with_lower(right_part):
         return ["delete", *list(expanded), right_part[0].upper(), "left"], len(lf)
 
-    # assuming ProperCase
-    expanded = expanded[0].upper() + expanded[1:]
     if expanded == lf:
-        return " ", 0
+        if space_on_no_change:
+            return [" "], 0
+        else:
+            return [], 0
+
     return list(expanded), len(lf)
 
 
-def expand_code_casing(left_part: str, right_part: str, config: Config) -> (Optional[str], int):
-    casing = get_casing_type(left_part, right_part)
+def _split_last_token(s: str) -> (str, str):
+    """
+    Return the last word-like token in `s`.
 
+    A token is made of alphanumerics, `_`, or `'`.
+    Trailing separators are ignored.
+    """
+    # one character past the last non alpha/_/' character
+    tmp_index = 0
+    # used to not trigger for leading break characters ex. hi-there- will grab there-
+    is_trailing = True
+    for i, ch in reverse_enumerate(s):
+
+        is_break_char = not (ch.isalnum() or ch == "_" or ch == "'")
+        if not is_trailing and is_break_char:
+            tmp_index = i+1  # skip the break character
+            break
+
+        if not is_break_char:
+            is_trailing = False
+
+    return s[:tmp_index], s[tmp_index:]
+
+
+def shift_press_release(word: str, trailing_white_space: str) -> (int, str):
+    """
+    left word -> the word at the end of the main buffer
+    trailing_space->space between that word and the end
+
+
+    this is cool -> nothing special captlize prev word or current word
+    EX: this is cool -> this is Cool
+    this-is-cool -> stop when you hit a nonspecial non _ character and captlize thefirst letter of that word(last thing in stack)
+    EX: this-is-cool-> this-is-Cool
+    hat=dog, captlize dog because non-alpha sperator rule same with hat+dog
+    EX: hot=dog -> hot=Dog
+    thisIsCool -> same rulse as normal case and separator should cover this case aswell
+    EX: thisIsCool -> ThisIsCool
+    hot_dog-> if we hit _ stop and next special character or " ", swap case of whatever came before all upp or all down
+    with the exception of a starting _ so that things like dart private scope works nicely.
+    EX: hot_dog -> HOT_DOG -> hot_dog, _randomDog -> _RandomDog->_randomDog, _hot_dog -> _HOT_DOG
+
+    if it is split on a - or + or something toggle only the last word
+    simple rule, get last word if it contains _ as first alpha numeric toggle the whole word
+    unless it is just at the start
+    if there is only one word or it's just a space or camel toggle the case of the first letter
+    """
+
+    _, word = _split_last_token(word)
+    leading_underscore = word.startswith("_")
+    if leading_underscore:
+        word = word[1:]
+
+    is_snake_case = "_" in word
+    if is_snake_case:
+        word = toggle_all_caps(word)
+    else:
+        word = toggle_captlize_word(word)
+
+    if leading_underscore:
+        word = "_"+word
+    word += trailing_white_space
+
+    return len(word), word
+
+
+def expand_code_casing(left_part: str, right_part: str, casing: Casing, config: Config) -> (Optional[list[str]], int):
     to_write, count = None, 0
     if casing == Casing.SNAKE or casing == Casing.UPPER_SNAKE:
         to_write, count = expand_snake_and_upper_snake_case(
-            left_part, right_part, config)
+            left_part, right_part, casing, config)
     elif casing == Casing.CAMEL or casing == Casing.PROPER:
         to_write, count = expand_cammel_and_proper_case(
             left_part, right_part, config)
+
+    return to_write, count
+
+
+def _get_old_and_new_part(word: str, new_flags: list[bool]) -> (str, str):
+    index = 0
+    for i, is_new in reverse_enumerate(new_flags):
+        if not is_new:
+            index = i
+            break
+
+    return word[0:index], word[index:]
+
+
+def _split_new_part(s: str, new_flags: list[bool]) -> (str, str):
+    if len(s) == 0:
+        return "", ""
+    index = 0
+    for i in reversed_range(s):
+        if not new_flags[i]:
+            index = i+1
+            break
+
+    return s[0:index], s[index:]
+
+
+def _safe_char_check(s: str, index: int, check):
+    return bool(s) and check(s[index])
+
+
+def _ends_with_alpha_numeric(s: str):
+    return _safe_char_check(s, -1, str.isalnum)
+
+
+def _starts_with_alpha_numeric(s: str):
+    return _safe_char_check(s, 0, str.isalnum)
+
+
+def _starts_with_lower(s: str):
+    return _safe_char_check(s, 0, str.islower)
+
+
+def _starts_with_upper(s: str):
+    return _safe_char_check(s, 0, str.isupper)
+
+
+def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_part: str, config: Config) -> (list[str], int):
+
+    if len(left_part) == 0 or len(white_space) > 1:
+        return None, 0
+
+    assert len(left_part) == len(
+        new_flags), f'length miss match should be impossible:{len(left_part)=}, {len(new_flags)=}'
+
+    to_write, count = None, 0
+
+    assumed_casing = config.assumed_casing
+    casing = determine_code_casing(
+        left_part, right_part, on_private_assume=assumed_casing)
+    print(casing)
+    if casing == Casing.NORMAL:
+        casing = assumed_casing
+
+    if casing == Casing.NORMAL:
+        return None, 0
+
+    old_part, new_part = _split_new_part(left_part, new_flags)
+
+    # print(new_part, left_part, new_flags)
+    if new_part == "":
+        return None, 0
+    print(casing)
+
+    tmp, new_part = _split_last_token(new_part)
+    old_part += tmp
+
+    print(casing)
+    if casing == Casing.SNAKE or casing == Casing.UPPER_SNAKE:
+
+        force_prpend = ""
+        if _ends_with_alpha_numeric(old_part) and not new_part.startswith("_"):
+            force_prpend = "_"
+
+        print(casing)
+        to_write, count = expand_snake_and_upper_snake_case(
+            new_part, right_part, casing, config, force_prpend, remove_trailing=False)
+
+    force_upper = _ends_with_alpha_numeric(
+        old_part) or _starts_with_upper(right_part)
+    if casing == Casing.PROPER:
+        force_upper = True
+        casing = Casing.CAMEL
+
+    if casing == Casing.CAMEL:
+        to_write, count = expand_cammel_and_proper_case(
+            new_part, right_part, config, force_proper=force_upper, space_on_no_change=config.space_on_new)
 
     return to_write, count
