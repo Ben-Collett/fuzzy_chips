@@ -68,13 +68,17 @@ def _first_letter_is_upper(s: str):
 
 
 def _upper_before_non_underscore_special(s, on_empty=False):
+    length = 0
     for ch in s:
-        print(ch)
+        length += 1
         if not ch.isalnum() and ch != "_":
             return False
         elif ch.isupper():
             return True
-    return on_empty
+    out = on_empty
+    if length > 0:
+        out = False
+    return out
 
 
 def _upper_trailing_non_underscore_special(s: str, on_empty=False):
