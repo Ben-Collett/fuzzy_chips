@@ -335,7 +335,6 @@ def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_pa
     assumed_casing = config.assumed_casing
     casing = determine_code_casing(
         left_part, right_part, on_private_assume=assumed_casing)
-    print(casing)
     if casing == Casing.NORMAL:
         casing = assumed_casing
 
@@ -344,22 +343,18 @@ def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_pa
 
     old_part, new_part = _split_new_part(left_part, new_flags)
 
-    # print(new_part, left_part, new_flags)
     if new_part == "":
         return None, 0
-    print(casing)
 
     tmp, new_part = _split_last_token(new_part)
     old_part += tmp
 
-    print(casing)
     if casing == Casing.SNAKE or casing == Casing.UPPER_SNAKE:
 
         force_prpend = ""
         if _ends_with_alpha_numeric(old_part) and not new_part.startswith("_"):
             force_prpend = "_"
 
-        print(casing)
         to_write, count = expand_snake_and_upper_snake_case(
             new_part, right_part, casing, config, force_prpend, remove_trailing=False)
 

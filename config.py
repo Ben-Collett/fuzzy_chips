@@ -1,6 +1,7 @@
 import tomllib
 import os
 from frozen_dict import FrozenDict
+from my_logger import log_info
 from my_config_manager import config_manager
 from spacing_type import SpacingType
 from casing import Casing
@@ -17,7 +18,7 @@ def _load_toml() -> dict:
         path = config_manager.find_config_file(CONFIG_FILE_NAME)
 
     if not os.path.exists(path):
-        print("no config found")
+        log_info("no config found")
         return {"chips": {}}
 
     with open(path, "rb") as file:
@@ -33,7 +34,7 @@ def _chip_map(chips) -> dict[FrozenDict[str], str]:
         key = FrozenDict.from_string(k)
         if key in out.keys():
             old_val = out[key]
-            print(f"colliding key overridng: {
+            log_info(f"colliding key overridng: {
                 k}={old_val} with {k} = {v}")
 
         out[key] = v
@@ -109,7 +110,8 @@ class Config:
         self.port = get_ipc("port", DEFAULT_PORT)
         self.host = get_ipc("host", LOCAL_HOST)
         self.ipc_enabled_commands = get_ipc("ipc_enabled_commands", default=[])
-        self.buffer_state_timeout_ms = get_general("buffer_state_timeout_ms", 1)
+        self.buffer_state_timeout_ms = get_general(
+            "buffer_state_timeout_ms", 1)
 
 
 current_config = Config(_load_toml())

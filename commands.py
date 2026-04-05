@@ -1,9 +1,10 @@
 from command_processor import CommandProcessor
 from config import current_config
+from my_logger import log_info
 
 
 def cmd_reload(_):
-    print("reloading")
+    log_info("reloading")
     current_config.reload()
 
 

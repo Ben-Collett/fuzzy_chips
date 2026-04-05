@@ -3,6 +3,7 @@ import os
 import sys
 import threading
 from casing import Casing, convert_casing
+from my_logger import log_info
 from spacing_type import SpacingType
 from collection_utils import count_where, captlize, is_not_empty_str
 from ipc_server import IPCServer
@@ -38,7 +39,7 @@ def activate_casing(casing):
 
 
 def _terminate(*args):
-    print("terminating...")
+    log_info("terminating...")
     stop_event.set()
 
 
@@ -65,7 +66,6 @@ def set_main_buffer(args):
 
 def set_buffer_right(args):
     set_buffer(args[::-1], _right_arrow_buffer)
-    print("set right", args)
 
 
 def write(text: str | list[str]):
@@ -118,7 +118,7 @@ def backspace_then_write(backspace_count, to_write, update_expected=True):
 
 
 def restart(_):
-    print("restarting")
+    log_info("restarting")
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
@@ -492,6 +492,7 @@ def process_event_wrapper(event: keyboard.KeyboardEvent):
     just_set.clear()
     if should_update_new:
         _buffer.mark_recent_as_old()
+        _right_arrow_buffer.mark_recent_as_old()
     if expected_counter == 0:
         prev_real_event = event
 

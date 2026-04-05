@@ -2,6 +2,7 @@
 import socket
 import threading
 from typing import Optional
+from my_logger import log_info
 from command_processor import CommandProcessor
 from config import current_config
 
@@ -65,7 +66,7 @@ class IPCServer:
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
 
-        print(f"IPC server listening on {self.host}:{self.port}")
+        log_info(f"IPC server listening on {self.host}:{self.port}")
 
         try:
 

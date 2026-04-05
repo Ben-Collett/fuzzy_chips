@@ -1,4 +1,5 @@
 from enum import Enum
+from my_logger import log_info
 
 
 class SpacingType(Enum):
@@ -13,8 +14,8 @@ class SpacingType(Enum):
             out = SpacingType(spacing_type)
         except ValueError:
             if print_on_err:
-                print(spacing_type,
-                      f"is not a valid spacing type, defaulting to {default}")
+                log_info(spacing_type,
+                         f"is not a valid spacing type, defaulting to {default}")
             out = default
 
         return out

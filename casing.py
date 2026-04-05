@@ -2,6 +2,7 @@ from enum import Enum
 from collection_utils import no_overlap, ends_with_any, starts_with_alnum
 from collection_utils import ends_with_alnum, is_not_empty_str, starts_with_any
 from collection_utils import captlize, uncaptlize, start_overlap_length, last_char
+from my_logger import log_info
 from utils import compute_upper_count
 DASHES = {"\u002d",  # -
           "\u2010",  # hyphen
@@ -39,7 +40,7 @@ class Casing(Enum):
             out = Casing(casing)
         except ValueError:
             if generate_err_message:
-                print(generate_err_message(casing, default))
+                log_info(generate_err_message(casing, default))
             out = default
 
         return out
@@ -112,10 +113,8 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
     is_snake = "_" in right_part or "_" in left_part
 
     if is_snake:
-        print(left_part, right_part)
         left_upper = _upper_trailing_non_underscore_special(
             left_part, on_empty=True)
-        print(left_upper)
         upper = left_upper and _upper_before_non_underscore_special(
             right_part, on_empty=True)
         if upper:

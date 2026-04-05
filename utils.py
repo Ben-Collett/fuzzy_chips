@@ -1,11 +1,6 @@
-from collections import deque
 from keyboard import KeyboardEvent, KEY_DOWN
 from modifiers import SHIFT, CTRL, ALT, WINDOWS
 from functools import lru_cache
-
-
-def print_debug(*args, **kwargs):
-    print(*args, **kwargs)
 
 
 def down_modifiers(event: KeyboardEvent):
