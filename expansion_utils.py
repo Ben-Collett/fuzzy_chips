@@ -280,16 +280,6 @@ def expand_code_casing(left_part: str, right_part: str, casing: Casing, config: 
     return to_write, count
 
 
-def _get_old_and_new_part(word: str, new_flags: list[bool]) -> (str, str):
-    index = 0
-    for i, is_new in reverse_enumerate(new_flags):
-        if not is_new:
-            index = i
-            break
-
-    return word[0:index], word[index:]
-
-
 def _split_new_part(s: str, new_flags: list[bool]) -> (str, str):
     if len(s) == 0:
         return "", ""

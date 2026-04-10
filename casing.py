@@ -49,18 +49,6 @@ class Casing(Enum):
 def is_dash(ch: str) -> bool:
     return ch in DASHES
 
-
-def is_all_caps(s: str):
-    """
-    if a character is not upper/lower like a number it is treated
-    as an a capitial, returns true for an empty string
-    """
-    for ch in s:
-        if ch.islower():
-            return False
-    return True
-
-
 def _first_letter_is_upper(s: str):
     for ch in s:
         if ch.isalpha():

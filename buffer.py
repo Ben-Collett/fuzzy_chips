@@ -50,28 +50,6 @@ class KeyBuffer:
     def __str__(self):
         return str(self.get())
 
-    def get_word_count(self) -> int:
-        """
-        Return the total number of words in the buffer.
-        A word is defined as a sequence of non-whitespace characters.
-        """
-        chars = self.get()
-        if not chars:
-            return 0
-
-        count = 0
-        in_word = False
-
-        for c in chars:
-            if c.isspace():
-                in_word = False
-            else:
-                if not in_word:
-                    count += 1
-                    in_word = True
-
-        return count
-
     def get_word_entries(self, index: int) -> list[BufferEntry]:
         """
         Get the word entries at the given index.
@@ -201,9 +179,6 @@ class KeyBuffer:
     def get_last_word(self) -> str:
         return self.get_word(-1)
 
-    def get_prev_word_entries(self) -> list[BufferEntry]:
-        return self.get_word_entries(-1)
-
     @staticmethod
     def _get_prev_word_range(chars: list[str]):
         if len(chars) == 0:
@@ -231,13 +206,6 @@ class KeyBuffer:
 
     def is_empty(self):
         return len(self.buffer) == 0
-
-    def get_last(self):
-        """Get the last inserted value"""
-        if not self.is_empty():
-            return self.buffer[-1].char
-        else:
-            return None  # Return None if buffer is empty
 
     def __len__(self):
         return len(self.buffer)

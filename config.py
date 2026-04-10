@@ -28,7 +28,7 @@ def _load_toml() -> dict:
     return data
 
 
-def _chip_map(chips) -> dict[FrozenDict[str], str]:
+def _chip_map(chips) -> dict[FrozenDict, str]:
     out = {}
     for k, v in chips.items():
         key = FrozenDict.from_string(k)
@@ -82,7 +82,7 @@ class Config:
         self.auto_apped = get_general("auto_append", True)
         self.toggle_case_on = get_general("toggle_case_on", ["shift"])
 
-        self.clear_buffer_on_keys = get_general(
+        self.clear_buffer_on_keys:str = get_general(
             "clear_buffer_on", ["windows_down", "alt_down", "ctrl_down"])
         self.just_set_safe_clear = get_general(
             "just_set_safe_clear", ["up", "down"])
@@ -103,13 +103,13 @@ class Config:
         self.spacing_type = SpacingType.safe_from_str(
             spacing_type, default=SpacingType.NORMAL, print_on_err=True)
 
-        assumed_casing = get_code("assumed_casing", "normal")
+        assumed_casing:str = get_code("assumed_casing", "normal")
         self.assumed_casing = Casing.safe_from_str(
             assumed_casing, default=Casing.NORMAL, generate_err_message=parse_assumed_casing_error_message)
         self.space_on_new = get_code("space_on_new", True)
         self.port = get_ipc("port", DEFAULT_PORT)
         self.host = get_ipc("host", LOCAL_HOST)
-        self.ipc_enabled_commands = get_ipc("ipc_enabled_commands", default=[])
+        self.ipc_enabled_commands:list[str] = get_ipc("ipc_enabled_commands", default=[])
         self.buffer_state_timeout_ms = get_general(
             "buffer_state_timeout_ms", 1)
 

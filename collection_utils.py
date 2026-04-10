@@ -24,7 +24,7 @@ def is_empty_str(s: str):
     return s == ""
 
 
-def is_not_empty_str(s: str):
+def is_not_empty_str(s):
     return s != ""
 
 

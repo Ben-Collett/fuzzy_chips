@@ -25,10 +25,6 @@ class IPCServer:
     def port(self):
         return current_config.port
 
-    @host.setter
-    def host(self, value):
-        self._host = value
-
     def start(self):
         """Start the IPC server in a separate thread."""
         if self.running:
@@ -73,7 +69,7 @@ class IPCServer:
             self.server_socket.settimeout(.01)
             while self.running:
                 try:
-                    client_socket, addr = self.server_socket.accept()
+                    client_socket, _ = self.server_socket.accept()
                     # client_socket.settimeout(5.0)
 
                     threading.Thread(

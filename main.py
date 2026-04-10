@@ -19,7 +19,6 @@ from expansion_utils import expand_code_casing, is_valid_chip_str, determine_cod
 from expansion_utils import expand_new
 from utils import is_all_non_alphanumeric_str
 import keyboard
-
 import signal
 
 keyboard.init(
@@ -38,12 +37,12 @@ def activate_casing(casing):
     current_casing = casing
 
 
-def _terminate(*args):
+def _terminate(*_):
     log_info("terminating...")
     stop_event.set()
 
 
-def clear_buffer(*args):
+def clear_buffer(*_):
     _buffer.clear()
     _right_arrow_buffer.clear()
 
@@ -122,12 +121,13 @@ def restart(_):
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
-def delete_previous_word(*args):
+def delete_previous_word(*_):
     global expected_counter
     buffer = _buffer.get()
+
     _buffer.backspace()
 
-    back_count = determine_amount_to_backspace_shift_backspace(buffer)
+    back_count = max(determine_amount_to_backspace_shift_backspace(buffer) -1,0)
     to_write = ""
     if (
         current_casing.is_not_normal_casing
@@ -137,27 +137,27 @@ def delete_previous_word(*args):
     backspace_then_write(back_count, to_write, update_expected=True)
 
 
-def activate_kabab_mode(*args):
+def activate_kabab_mode(*_):
     activate_casing(Casing.KEBAB)
 
 
-def activate_snake_mode(*args):
+def activate_snake_mode(*_):
     activate_casing(Casing.SNAKE)
 
 
-def activate_normal_casing_mode(*args):
+def activate_normal_casing_mode(*_):
     activate_casing(Casing.NORMAL)
 
 
-def activate_upper_snake_mode(*args):
+def activate_upper_snake_mode(*_):
     activate_casing(Casing.UPPER_SNAKE)
 
 
-def activate_proper_mode(*args):
+def activate_proper_mode(*_):
     activate_casing(Casing.PROPER)
 
 
-def activate_camel_mode(*args):
+def activate_camel_mode(*_):
     activate_casing(Casing.CAMEL)
 
 
@@ -239,19 +239,19 @@ def handle_backspace(event, shift_down):
     global expected_counter
     is_backspace = event.name == "backspace"
     pressed_key = event.event_type == keyboard.KEY_DOWN
-    if shift_down and is_backspace and pressed_key and expected_counter == 0:
-        delete_previous_word()
-        return True
-    elif is_backspace and pressed_key:
-        _buffer.backspace()
-        decrement_expected_counter()
+    if is_backspace and pressed_key:
+        if shift_down and expected_counter == 0:
+            delete_previous_word()
+        else:
+            _buffer.backspace()
+            decrement_expected_counter()
         return True
     return False
 
 
 def handle_clear(name, config, meta_down, ctrl_down, alt_down):
-    clear_on = current_config.clear_buffer_on_keys
-    safe_clear = current_config.just_set_safe_clear
+    clear_on:str =config.clear_buffer_on_keys
+    safe_clear =config.just_set_safe_clear
     should_clear = name in clear_on
 
     if "windows_down" in clear_on:
@@ -311,7 +311,7 @@ def get_right_word() -> str:
     return ""
 
 
-def get_left_right_part(word: str) -> (str, str):
+def get_left_right_part(word: str) -> tuple[str,str]:
     """
     word = last word in left buffer
     white space = leading white space in left buffer
@@ -400,7 +400,7 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
         # only want to expand chip if there is only 1 ' '
         process_chip = not shift_down and len(white_space) == 1
 
-        to_write = None
+        to_write:str|list[str]|None = None
         if process_chip:
             if current_casing == Casing.NORMAL:
                 left_part, right_part = get_left_right_part(word)
@@ -468,6 +468,8 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
         return
 
     name = event.name
+    assert name is not None
+
     if name == "left":
         move_last(source=_buffer, target=_right_arrow_buffer)
         decrement_expected_counter()
@@ -481,7 +483,7 @@ def _process_event(event: keyboard.KeyboardEvent, config=current_config):
         decrement_expected_counter()
         return
 
-    utf: str | None = to_utf(event, shift_down)
+    utf: str | None = to_utf(name, shift_down)
     add_utf_and_update_expected(utf)
 
 
@@ -502,7 +504,7 @@ def main():
     ipc_server = IPCServer(command_processor)
     ipc_server.start()
 
-    def sigint_handler(signum, frame):
+    def sigint_handler(*_):
         _terminate()
 
     original_handler = signal.signal(signal.SIGINT, sigint_handler)

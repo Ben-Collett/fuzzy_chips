@@ -5,6 +5,10 @@ from functools import lru_cache
 
 def down_modifiers(event: KeyboardEvent):
     modifiers = event.modifiers
+    if modifiers is None:
+        print("modifiers where none some how")
+        modifiers = []
+
     out = set()
 
     def add_if_needed(mod):
@@ -26,14 +30,6 @@ def down_modifiers(event: KeyboardEvent):
         add_if_needed(modifier)
 
     return out
-
-
-def end_with_count(itr, val):
-    count = 0
-    for i in reversed(itr):
-        if val == itr[i]:
-            count += 1
-    return count
 
 
 @lru_cache
@@ -58,8 +54,7 @@ def is_all_non_alphanumeric_str(s: str):
     return not any(ch.isalnum() for ch in s)
 
 
-def to_utf(event: KeyboardEvent, shift_down):
-    name = event.name
+def to_utf(name: str, shift_down: bool):
     if len(name) == 1:
         if shift_down:
             return name.upper()
@@ -93,7 +88,8 @@ all-other-separators, will behave like snake case
 
 
 def backspaces_to_delete_previous_word(buffer: list[str]) -> int:
-    if not buffer:
+    print(buffer)
+    if len(buffer)==0:
         return 0
 
     i = len(buffer) - 1
@@ -103,8 +99,9 @@ def backspaces_to_delete_previous_word(buffer: list[str]) -> int:
         count += 1
         i -= 1
 
-    if i < 0:
-        return len(buffer) - i
+    all_non_alnum = i < 0
+    if all_non_alnum:
+        return len(buffer)
 
     upper_mode = buffer[i].isupper()
 
@@ -113,18 +110,16 @@ def backspaces_to_delete_previous_word(buffer: list[str]) -> int:
             i -= 1
             count += 1
             ch = buffer[i]
-            if ch.islower() or ch.isspace():
-                return count-1
-            if not alpha_numericish(ch):
+            if not alpha_numericish(ch) or ch.isspace() or ch.islower():
                 return count
     else:
         while i > 0:
             i -= 1
             count += 1
             ch = buffer[i]
-            if ch.isspace():
-                return count-1
-            if ch.isupper() or not alpha_numericish(ch):
+            if ch.isspace() or not alpha_numericish(ch):
                 return count
+            if ch.isupper() :
+                return count + 1 #+1 to include the lower character
 
-    return len(buffer) - 1
+    return len(buffer)
