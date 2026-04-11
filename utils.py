@@ -1,12 +1,13 @@
 from keyboard import KeyboardEvent, KEY_DOWN
 from modifiers import SHIFT, CTRL, ALT, WINDOWS
 from functools import lru_cache
+from my_logger import log_info
 
 
 def down_modifiers(event: KeyboardEvent):
     modifiers = event.modifiers
     if modifiers is None:
-        print("modifiers where none some how")
+        log_info("modifiers where none some how")
         modifiers = []
 
     out = set()
@@ -88,7 +89,6 @@ all-other-separators, will behave like snake case
 
 
 def backspaces_to_delete_previous_word(buffer: list[str]) -> int:
-    print(buffer)
     if len(buffer)==0:
         return 0
 
