@@ -75,13 +75,13 @@ def _upper_trailing_non_underscore_special(s: str, on_empty=False):
 
 
 def _empty_or_upper(s: str):
-    return s == "" or s.isupper()
+    return all(ch.isupper() for ch in s )
 
 
 def determine_code_casing(left_part: str, right_part: str, on_private_assume=Casing.SNAKE) -> Casing:
     """
     tries to determine casing type
-    from the contents to the left and right of the current curosr
+    from the contents to the left and right of the current cursor
     does not handle kebab case
     """
 
