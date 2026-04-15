@@ -2,13 +2,13 @@ import tomllib
 import os
 from frozen_dict import FrozenDict
 from my_logger import log_info
-from my_config_manager import config_manager
+from config_manager import ConfigManager
 from spacing_type import SpacingType
 from casing import Casing
 from constants import DEFAULT_PORT, LOCAL_HOST
 
 
-def _load_toml() -> dict:
+def _load_toml(config_manager: ConfigManager) -> dict:
     CONFIG_FILE_NAME = "config.toml"
     path = ""
     if os.path.exists(CONFIG_FILE_NAME):
@@ -59,14 +59,20 @@ def _get_from_toml[T](
 
 
 class Config:
-    def __init__(self, config_map=None):
+    def __init__(self, config_map=None, config_manager=None):
+        self._config_manager = config_manager
         self.update(config_map)
 
+    @classmethod
+    def load(cls, config_manager: ConfigManager) -> "Config":
+        return cls(_load_toml(config_manager), config_manager)
+
     def reload(self):
-        self.update(_load_toml())
+        if self._config_manager is None:
+            raise RuntimeError("config_manager not set, cannot reload")
+        self.update(_load_toml(self._config_manager))
 
     def update(self, config_map=None):
-        print("updating")
         config_map = config_map or {}
 
         def get_code[T](name: str, default: T, expected_type: type[T]) -> T:
@@ -136,6 +142,3 @@ class Config:
         self.buffer_state_timeout_ms: int = get_general(
             "buffer_state_timeout_ms", 1, int
         )
-
-
-current_config = Config(_load_toml())

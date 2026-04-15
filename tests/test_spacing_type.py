@@ -20,29 +20,37 @@ class TestSafeFromStr:
         ],
     )
     def test_returns_correct_spacing_type(self, input_str, expected):
-        assert SpacingType.safe_from_str(input_str, SpacingType.NORMAL,print_on_err=False) == expected
+        assert (
+            SpacingType.safe_from_str(input_str, SpacingType.NORMAL, print_on_err=False)
+            == expected
+        )
 
     def test_returns_default_for_invalid_input(self):
-        assert SpacingType.safe_from_str("invalid",SpacingType.NORMAL ,print_on_err=False) == "normal"
+        assert (
+            SpacingType.safe_from_str("invalid", SpacingType.NORMAL, print_on_err=False)
+            == SpacingType.NORMAL
+        )
 
     def test_returns_custom_default_for_invalid_input(self):
         assert (
-            SpacingType.safe_from_str("invalid", default="code", print_on_err=False)
-            == "code"
-        )
-
-    @patch("spacing_type.log_info")
-    def test_logs_error_for_invalid_input(self, mock_log_info):
-        SpacingType.safe_from_str("invalid", SpacingType.NORMAL,print_on_err=True)
-        mock_log_info.assert_called_once_with(
-            "invalid", "is not a valid spacing type, defaulting to normal"
+            SpacingType.safe_from_str(
+                "invalid", default=SpacingType.CODE, print_on_err=False
+            )
+            == SpacingType.CODE
         )
 
     def test_returns_none_for_empty_string(self):
-        result = SpacingType.safe_from_str("", SpacingType.NORMAL,print_on_err=False)
-        assert result == "normal"
+        result = SpacingType.safe_from_str("", SpacingType.NORMAL, print_on_err=False)
+        assert result == SpacingType.NORMAL
 
-    @patch("spacing_type.log_info")
+    @patch("enum_utils.log_info")
+    def test_logs_error_for_invalid_input(self, mock_log_info):
+        SpacingType.safe_from_str("invalid", SpacingType.NORMAL, print_on_err=True)
+        mock_log_info.assert_called_once_with(
+            "is not a valid spacing type, defaulting to SpacingType.NORMAL"
+        )
+
+    @patch("enum_utils.log_info")
     def test_does_not_log_when_print_on_err_false(self, mock_log_info):
-        SpacingType.safe_from_str("invalid", SpacingType.NORMAL,print_on_err=False)
+        SpacingType.safe_from_str("invalid", SpacingType.NORMAL, print_on_err=False)
         mock_log_info.assert_not_called()

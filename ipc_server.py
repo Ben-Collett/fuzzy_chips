@@ -4,26 +4,28 @@ import threading
 from typing import Optional
 from my_logger import log_info
 from command_processor import CommandProcessor
-from config import current_config
+from config import Config
 
 
 class IPCServer:
     def __init__(
         self,
         command_processor: CommandProcessor,
+        config: Config,
     ):
         self.command_processor = command_processor
+        self.config = config
         self.server_socket: Optional[socket.socket] = None
         self.running = False
         self.thread: Optional[threading.Thread] = None
 
     @property
     def host(self):
-        return current_config.host
+        return self.config.host
 
     @property
     def port(self):
-        return current_config.port
+        return self.config.port
 
     def start(self):
         """Start the IPC server in a separate thread."""
@@ -50,14 +52,10 @@ class IPCServer:
 
     def _run_server(self):
         """Main server loop."""
-        self.server_socket = socket.socket(
-            socket.AF_INET, socket.SOCK_STREAM
-        )
+        self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         # Allows fast restart on Unix + Windows
-        self.server_socket.setsockopt(
-            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1
-        )
+        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
@@ -65,8 +63,7 @@ class IPCServer:
         log_info(f"IPC server listening on {self.host}:{self.port}")
 
         try:
-
-            self.server_socket.settimeout(.01)
+            self.server_socket.settimeout(0.01)
             while self.running:
                 try:
                     client_socket, _ = self.server_socket.accept()
@@ -129,8 +126,7 @@ class IPCServer:
                         response = "invalid"
 
                     client_socket.sendall(
-                        f"{len(response)}\n".encode("ascii") +
-                        response.encode("utf-8")
+                        f"{len(response)}\n".encode("ascii") + response.encode("utf-8")
                     )
 
         except (socket.timeout, ConnectionResetError):

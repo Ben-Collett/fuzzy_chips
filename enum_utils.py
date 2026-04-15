@@ -8,6 +8,4 @@ def safe_enum_from_str(enum_type, key, default, err_msg:Optional[str]=None):
             log_info(err_msg)
         out = default
 
-        return out
-
-
+    return out

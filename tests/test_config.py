@@ -37,15 +37,17 @@ class TestGetSection:
 
 class TestGetFromToml:
     @pytest.mark.parametrize(
-        "section,name,config_map,default,expected",
+        "section,name,config_map,default,expected_type,expected",
         [
-            ("chips", "hello", {"chips": {"hello": "world"}}, None, "world"),
-            ("chips", "missing", {"chips": {}}, None, None),
-            ("chips", "missing", {}, "default", "default"),
+            ("chips", "hello", {"chips": {"hello": "world"}}, None, str, "world"),
+            ("chips", "missing", {"chips": {}}, None, str, None),
+            ("chips", "missing", {}, "default", str, "default"),
         ],
     )
-    def test_get_from_toml(self, section, name, config_map, default, expected):
-        result = _get_from_toml(section, name, config_map, default)
+    def test_get_from_toml(
+        self, section, name, config_map, default, expected_type, expected
+    ):
+        result = _get_from_toml(section, name, config_map, default, expected_type)
         assert result == expected
 
 
@@ -89,12 +91,20 @@ class TestConfigGeneral:
     @pytest.mark.parametrize(
         "config_map,attr,expected",
         [
-            ({"general": {"ignored_leading": ["("]}}, "ignored_leading", ["("]),
-            ({"general": {"ignored_trailing": [")"]}}, "ignored_trailing", [")"]),
             (
                 {"general": {"buffer_state_timeout_ms": 500}},
                 "buffer_state_timeout_ms",
                 500,
+            ),
+            (
+                {"rare": {"ignored_leading": ["("]}},
+                "ignored_leading",
+                ["("],
+            ),
+            (
+                {"rare": {"ignored_trailing": [")"]}},
+                "ignored_trailing",
+                [")"],
             ),
         ],
     )
