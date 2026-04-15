@@ -1,4 +1,4 @@
-# NOTE: all general/code settings shown are set equal to their default behavior so if you want the described functionality you don't need  to override that key
+# NOTE: all settings besideds the chips section at the bottom of the file are set equal to their default behavior so if you want the described functionality you don't need  to override that key
 [general]
 # will toggle the case of the previous or current word when you press and release shift without hitting any characters in between.
 toggle_case_on = ["shift"]
@@ -9,18 +9,23 @@ toggle_case_on = ["shift"]
 # that means the buffer gets cleared and it would mess with append_chars if I had alt_down in my config to clear the buffer
 # Also keep in mind using clear_on_buffer will interfere with toggle_case_on if you put the same key in both
 clear_buffer_on = ["windows_down", "ctrl_down", "alt_down"]
-# same as clear_buffer_on unless using ipc if the buffer was just set by ipc then the event won't clear the buffer
-just_set_safe_clear = ["up", "down"]
+
+# if the previous word ends with one of these characters then the current word will be capitalized once you hit space
+# set to an empty list to avoid any auto captlizing
+# capitalize_after = []
+capitalize_after = [".", "!", "?"]
 # append_chars have special behavior depending on the setting of auto_append
 # if true when pressing an append char it will be automatically appended to the previous word in the buffer and white space will be restored
 # if false then it won't append until you press space and will fail to do so if you press shift+space
 # you probably don't want to auto append when working with shells and programming
 append_chars = [".", "!", "?", ",", ";", ")", "]", "}"]
 auto_append = false
-# if the previous word ends with one of these characters then the current word will be capitalized once you hit space
-capitalize_after = [".", "!", "?"]
-# timeout in milliseconds for buffer state deduplication - prevents buffer from being set to the same state within this time window
-buffer_state_timeout_ms = 1
+
+# these settings can be changed but rarely should
+[rare]
+# same as clear_buffer_on unless using ipc if the buffer was just set by ipc then the event won't clear the buffer
+just_set_safe_clear = ["up", "down"]
+
 # passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized
 # where as 'hi' it will not
 captlize_passthrough = ['"', "'", "`"]

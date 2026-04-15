@@ -78,6 +78,9 @@ class Config:
         def get_ipc[T](name: str, default: T, expected_type: type[T]) -> T:
             return _get_from_toml("ipc", name, config_map, default, expected_type)
 
+        def get_rare[T](name: str, default: T, expected_type: type[T]) -> T:
+            return _get_from_toml("rare", name, config_map, default, expected_type)
+
         self.chip_map = _chip_map(_get_section("chips", config_map))
         self.append_chars: list[str] = get_general(
             "append_chars", [".", ",", "!", "?", ";"], list
@@ -85,7 +88,7 @@ class Config:
         self.capitalize_after: list[str] = get_general(
             "capitalize_after", [".", "!", "?"], list
         )
-        self.capitalize_passthrough: list[str] = get_general(
+        self.capitalize_passthrough: list[str] = get_rare(
             "captlize_passthrough", ["'", '"', "`"], list
         )
         self.auto_apped: bool = get_general("auto_append", True, bool)
@@ -95,7 +98,7 @@ class Config:
             "clear_buffer_on", ["windows_down", "alt_down", "ctrl_down"], list
         )
 
-        self.just_set_safe_clear: list[str] = get_general(
+        self.just_set_safe_clear: list[str] = get_rare(
             "just_set_safe_clear", ["up", "down"], list
         )
 
@@ -112,15 +115,16 @@ class Config:
             "separate_tail", ["uppercase"], list
         )
 
-        self.ignored_leading: list[str] = get_general(
+        self.ignored_leading: list[str] = get_rare(
             "ignored_leading", ['"', "(", "[", "{", "`", "'"], list
         )
-        self.ignored_trailing: list[str] = get_general(
+        self.ignored_trailing: list[str] = get_rare(
             "ignored_trailing", ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","], list
         )
 
         spacing_type: str = get_code("spacing_type", "normal", str)
-        self.spacing_type = SpacingType.safe_from_str(spacing_type, SpacingType.NORMAL, print_on_err=True
+        self.spacing_type = SpacingType.safe_from_str(
+            spacing_type, SpacingType.NORMAL, print_on_err=True
         )
 
         assumed_casing: str = get_code("assumed_casing", "normal", str)
