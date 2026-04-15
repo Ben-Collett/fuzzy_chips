@@ -2,6 +2,7 @@ from enum import Enum
 from collection_utils import no_overlap, ends_with_any, starts_with_alnum
 from collection_utils import ends_with_alnum, is_not_empty_str, starts_with_any
 from collection_utils import captlize, uncaptlize, start_overlap_length, last_char
+from enum_utils import safe_enum_from_str
 from my_logger import log_info
 from utils import compute_upper_count
 DASHES = {"\u002d",  # -
@@ -34,16 +35,9 @@ class Casing(Enum):
         return self != Casing.NORMAL
 
     @staticmethod
-    def safe_from_str(casing: str, default=NORMAL, generate_err_message=None):
-        out = None
-        try:
-            out = Casing(casing)
-        except ValueError:
-            if generate_err_message:
-                log_info(generate_err_message(casing, default))
-            out = default
-
-        return out
+    def safe_from_str(casing: str, default):
+        err_msg= f"assumed casing: {casing} is not a valid casing type, defaulting to {default}"
+        return safe_enum_from_str(Casing,casing,default,err_msg)
 
 
 def is_dash(ch: str) -> bool:

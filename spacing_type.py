@@ -1,5 +1,5 @@
 from enum import Enum
-from my_logger import log_info
+from enum_utils import safe_enum_from_str
 
 
 class SpacingType(Enum):
@@ -8,14 +8,8 @@ class SpacingType(Enum):
     NEW = "new"
 
     @staticmethod
-    def safe_from_str(spacing_type: str, default=NORMAL, print_on_err=True):
-        out = None
-        try:
-            out = SpacingType(spacing_type)
-        except ValueError:
-            if print_on_err:
-                log_info(spacing_type,
-                         f"is not a valid spacing type, defaulting to {default}")
-            out = default
-
-        return out
+    def safe_from_str(spacing_type, default, print_on_err=True):
+        err_msg = None
+        if print_on_err:
+            err_msg = f"is not a valid spacing type, defaulting to {default}"
+        return safe_enum_from_str(SpacingType,spacing_type,default,err_msg)
