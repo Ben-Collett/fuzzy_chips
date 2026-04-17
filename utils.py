@@ -2,6 +2,7 @@ from keyboard import KeyboardEvent, KEY_DOWN
 from modifiers import SHIFT, CTRL, ALT, WINDOWS
 from functools import lru_cache
 from my_logger import log_info
+from typing import List, Tuple
 
 
 def down_modifiers(event: KeyboardEvent):
@@ -69,6 +70,36 @@ def to_utf(name: str, shift_down: bool):
         return "\n"
 
 
+def split_non_alpha(text: str, excluded: List[str]) -> List[Tuple[str, bool]]:
+    """
+    Returns a list of (token, is_separator).
+    
+    - token: the string piece
+    - is_separator: True if it's a separator, False if it's a word
+    
+    Separators are characters that are:
+    - NOT alphanumeric
+    - AND NOT in the excluded list
+    """
+    excluded_set = set(excluded)
+    
+    tokens: List[Tuple[str, bool]] = []
+    current: List[str] = []
+
+    def flush_current():
+        if current:
+            tokens.append(("".join(current), False))
+            current.clear()
+
+    for ch in text:
+        if ch.isalnum() or ch in excluded_set:
+            current.append(ch)
+        else:
+            flush_current()
+            tokens.append((ch, True))
+
+    flush_current()
+    return tokens
 def alpha_numericish(ch: str):
     return ch.isalnum() or ch == "'"
 

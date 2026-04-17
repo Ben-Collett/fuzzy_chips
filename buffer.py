@@ -1,6 +1,6 @@
 from collections import deque
 from dataclasses import dataclass
-
+from typing import Optional
 
 @dataclass
 class BufferEntry:
@@ -35,7 +35,7 @@ class KeyBuffer:
         for item in items:
             self.add(item, recent)
 
-    def add_entry(self, entry: BufferEntry):
+    def add_entry(self, entry):
         """Add entry to the buffer (removes oldest if full)"""
         self.buffer.append(entry)
 
@@ -196,11 +196,11 @@ class KeyBuffer:
                 break
         return (lower, upper)
 
-    def backspace(self) -> str:
+    def backspace(self) -> Optional[str]:
         if not self.is_empty():
             return self.buffer.pop().char
 
-    def backspace_entry(self) -> BufferEntry:
+    def backspace_entry(self) -> Optional[BufferEntry]:
         if not self.is_empty():
             return self.buffer.pop()
 

@@ -1,33 +1,24 @@
+from chunking import ChunkingType
 from frozen_dict import FrozenDict
 from casing import Casing, determine_code_casing
-from collection_utils import count_where,  captlize, is_not_empty_str
-from collection_utils import toggle_all_caps, toggle_captlize_word
+from collection_utils import count_where,  captlize, ends_with_alnum, is_not_empty_str
+from collection_utils import toggle_all_caps, toggle_captlize_word 
 from typing import Optional
-from utils import is_str, compute_upper_count, reverse_enumerate
-from utils import reversed_range, is_str
+from utils import is_str, compute_upper_count,  reverse_enumerate
+from utils import reversed_range, is_str, split_non_alpha
 from config import Config
 
-
-# this name kind of sucks
-
-
-def _extract_ignored_leading_word_trailing(word: str, config):
-    """
-    extracts the leading characters, the word, and the trailing characters from the word variable based on the config
-    ex:"'hello"', leading = "', word = hello, trailing = "', assuming that config.ignore_leading/trailing contain ' and "
-    """
-    ignored_leading = config.ignored_leading
-    ignored_trailing = config.ignored_trailing
+def _partition_non_alnum_edges(word: str):
 
     leading = []
     trailing = []
     for ch in word:
-        if ch in ignored_leading:
+        if not ch.isalnum():
             leading.append(ch)
         else:
             break
     for ch in reversed(word):
-        if ch in ignored_trailing:
+        if not ch.isalnum():
             trailing.append(ch)
         else:
             break
@@ -73,8 +64,7 @@ def get_chip_result(word: str, config: Config) -> list[str] | str | None:
         chip = chip_map[char_frequency]
         return _update_captlization(chip, upper_count)
 
-    leading, w, trailing = _extract_ignored_leading_word_trailing(
-        word, config)
+    leading, w, trailing = _partition_non_alnum_edges(word)
     char_frequency = FrozenDict.from_string(w)
 
     # we check if it's a str because if it is a list we don't handle ignoring leading and trailing
@@ -88,11 +78,18 @@ def get_chip_result(word: str, config: Config) -> list[str] | str | None:
     return None
 
 
-def _expand(word: str, config) -> str:
+def _expand(word: str, config:Config) -> str|list[str]:
     out = get_chip_result(word, config)
     if out is None:
         out = word
     return out
+
+def _expand_str_only(word:str,config:Config)->str:
+    out = get_chip_result(word, config)
+    if not isinstance(out,str):
+        out = word
+    return out
+
 
 
 def _last_capital_segment(s: str) -> str:
@@ -116,7 +113,7 @@ def starts_with_alnum(s: str):
     return is_not_empty_str(s) and s[0].isalnum()
 
 
-def expand_snake_and_upper_snake_case(left_part: str, right_part: str, casing: Casing, config: Config, force_prepend="", remove_trailing=True) -> (list[str], int):
+def expand_snake_and_upper_snake_case(left_part: str, right_part: str, casing: Casing, config: Config, force_prepend="", remove_trailing=True) -> tuple[list[str], int]:
     trail_count = 0
     for ch in reversed(left_part):
         early_exit = False
@@ -151,6 +148,8 @@ def expand_snake_and_upper_snake_case(left_part: str, right_part: str, casing: C
 
     expanded = _expand(to_expand.lower(), config)
 
+    if not isinstance(expanded,str):
+        return [" "],0
     if casing == Casing.UPPER_SNAKE:
         expanded = expanded.upper()
 
@@ -165,7 +164,7 @@ def expand_snake_and_upper_snake_case(left_part: str, right_part: str, casing: C
     return list(out), len(to_expand)
 
 
-def expand_cammel_and_proper_case(left_part: str, right_part: str, config: Config, force_proper=False, space_on_no_change=True) -> (list[str], int):
+def expand_cammel_and_proper_case(left_part: str, right_part: str, config: Config, force_proper=False, space_on_no_change=True) -> tuple[list[str], int]:
     """
     returns to write, the amount to backspace, and if the expansion output was a list.
     """
@@ -184,7 +183,7 @@ def expand_cammel_and_proper_case(left_part: str, right_part: str, config: Confi
     if len(lf) > 0 and lf[0].isupper():
         upper_count -= 1
 
-    if not is_str(expanded):
+    if not isinstance(expanded,str):
         return expanded, len(lf)
 
     if force_proper or _starts_with_upper(left_part) or len(lf) < len(left_part):
@@ -202,7 +201,7 @@ def expand_cammel_and_proper_case(left_part: str, right_part: str, config: Confi
     return list(expanded), len(lf)
 
 
-def _split_last_token(s: str) -> (str, str):
+def _split_last_token(s: str) -> tuple[str, str]:
     """
     Return the last word-like token in `s`.
 
@@ -226,7 +225,7 @@ def _split_last_token(s: str) -> (str, str):
     return s[:tmp_index], s[tmp_index:]
 
 
-def shift_press_release(word: str, trailing_white_space: str) -> (int, str):
+def shift_press_release(word: str, trailing_white_space: str) -> tuple[int, str]:
     """
     left word -> the word at the end of the main buffer
     trailing_space->space between that word and the end
@@ -236,7 +235,7 @@ def shift_press_release(word: str, trailing_white_space: str) -> (int, str):
     EX: this is cool -> this is Cool
     this-is-cool -> stop when you hit a nonspecial non _ character and captlize thefirst letter of that word(last thing in stack)
     EX: this-is-cool-> this-is-Cool
-    hat=dog, captlize dog because non-alpha sperator rule same with hat+dog
+    hat=dog, captlize dog because non-alpha separator rule same with hat+dog
     EX: hot=dog -> hot=Dog
     thisIsCool -> same rulse as normal case and separator should cover this case aswell
     EX: thisIsCool -> ThisIsCool
@@ -268,7 +267,8 @@ def shift_press_release(word: str, trailing_white_space: str) -> (int, str):
     return len(word), word
 
 
-def expand_code_casing(left_part: str, right_part: str, casing: Casing, config: Config) -> (Optional[list[str]], int):
+
+def expand_code_casing(left_part: str, right_part: str, casing: Casing, config: Config) -> tuple[Optional[list[str]], int]:
     to_write, count = None, 0
     if casing == Casing.SNAKE or casing == Casing.UPPER_SNAKE:
         to_write, count = expand_snake_and_upper_snake_case(
@@ -279,8 +279,50 @@ def expand_code_casing(left_part: str, right_part: str, casing: Casing, config: 
 
     return to_write, count
 
+    
+def _expand_last_chunk_and_join(parts:list[tuple[str,bool]],config:Config)->str:
+    """
+    will not expand if expands to list or hit a trailing non ignored separator character
+     """
+    out = []
+    should_expand = True
+    for part in reversed(parts):
+        val, is_sep = part
+        if should_expand and not is_sep:
+            val = _expand_str_only(val,config)
+            should_expand = False
+        out.append(val)
+    return "".join(reversed(out))
 
-def _split_new_part(s: str, new_flags: list[bool]) -> (str, str):
+
+    
+def expand_chunking(left_part:str,new_chars:list[bool], config: Config):
+    old_part = ""
+    if config.new_chunks_only:
+      old_part, left_part =split_new_part(left_part,new_chars)
+    parts:list[tuple[str,bool]] = split_non_alpha(left_part, config.chunking_ignore)
+
+    if len(parts)>0 and ends_with_alnum(old_part):
+        par,_ = parts[0]
+        old_part += par
+        parts = parts[1:]
+
+    to_write = []
+    if config.chunking_type == ChunkingType.LAST:
+        return old_part + _expand_last_chunk_and_join(parts,config)
+    for part in parts:
+        val, is_sep = part
+        if not is_sep:
+            expanded = _expand(val,config)
+            if isinstance(expanded,str):
+                val = expanded
+        to_write.append(val)
+
+    return old_part + "".join(to_write)
+
+
+
+def split_new_part(s: str, new_flags: list[bool]) -> tuple[str, str]:
     if len(s) == 0:
         return "", ""
     index = 0
@@ -299,11 +341,6 @@ def _safe_char_check(s: str, index: int, check):
 def _ends_with_alpha_numeric(s: str):
     return _safe_char_check(s, -1, str.isalnum)
 
-
-def _starts_with_alpha_numeric(s: str):
-    return _safe_char_check(s, 0, str.isalnum)
-
-
 def _starts_with_lower(s: str):
     return _safe_char_check(s, 0, str.islower)
 
@@ -312,7 +349,7 @@ def _starts_with_upper(s: str):
     return _safe_char_check(s, 0, str.isupper)
 
 
-def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_part: str, config: Config) -> (list[str], int):
+def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_part: str, config: Config) -> tuple[Optional[list[str]], int]:
 
     if len(left_part) == 0 or len(white_space) > 1:
         return None, 0
@@ -331,7 +368,7 @@ def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_pa
     if casing == Casing.NORMAL:
         return None, 0
 
-    old_part, new_part = _split_new_part(left_part, new_flags)
+    old_part, new_part = split_new_part(left_part, new_flags)
 
     if new_part == "":
         return None, 0

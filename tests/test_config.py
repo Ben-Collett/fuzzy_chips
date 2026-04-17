@@ -57,7 +57,7 @@ class TestConfigClass:
         assert config.append_chars == [".", ",", "!", "?", ";"]
         assert config.capitalize_after == [".", "!", "?"]
         assert config.capitalize_passthrough == ["'", '"', "`"]
-        assert config.auto_apped is True
+        assert config.auto_append is True
         assert config.toggle_case_on == ["shift"]
         assert config.clear_buffer_on_keys == ["windows_down", "alt_down", "ctrl_down"]
         assert config.just_set_safe_clear == ["up", "down"]
@@ -74,7 +74,7 @@ class TestConfigClass:
         config = Config(config_map)
         assert config.append_chars == [","]
         assert config.capitalize_after == ["!"]
-        assert config.auto_apped is False
+        assert config.auto_append is False
         assert config.toggle_case_on == ["ctrl"]
 
     def test_config_default_values_empty_map(self):
@@ -87,27 +87,3 @@ class TestConfigClass:
         assert config.space_on_new is True
 
 
-class TestConfigGeneral:
-    @pytest.mark.parametrize(
-        "config_map,attr,expected",
-        [
-            (
-                {"general": {"buffer_state_timeout_ms": 500}},
-                "buffer_state_timeout_ms",
-                500,
-            ),
-            (
-                {"rare": {"ignored_leading": ["("]}},
-                "ignored_leading",
-                ["("],
-            ),
-            (
-                {"rare": {"ignored_trailing": [")"]}},
-                "ignored_trailing",
-                [")"],
-            ),
-        ],
-    )
-    def test_config_general_attributes(self, config_map, attr, expected):
-        config = Config(config_map)
-        assert getattr(config, attr) == expected

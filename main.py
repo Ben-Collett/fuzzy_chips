@@ -7,7 +7,7 @@ from utils import down_modifiers, to_utf, is_str
 from utils import backspaces_to_delete_previous_word
 from buffer import KeyBuffer
 from config import Config
-from expansion_utils import get_chip_result, shift_press_release
+from expansion_utils import expand_chunking, get_chip_result, shift_press_release
 from expansion_utils import expand_code_casing, is_valid_chip_str, determine_code_casing
 from expansion_utils import expand_new
 from utils import is_all_non_alphanumeric_str
@@ -103,9 +103,9 @@ def delete_previous_word(_: list[str]):
     backspace_then_write(back_count, to_write, update_expected=True)
 
 
-def handle_auto_append(event, config):
+def handle_auto_append(event, config:Config):
     name = event.name
-    auto_append = config.auto_apped
+    auto_append = config.auto_append
     append_chars = config.append_chars
     ctx = AppContext.get_current()
     if auto_append and name in append_chars:
@@ -151,9 +151,9 @@ def handle_backspace(event, shift_down):
     return False
 
 
-def handle_clear(name, config, meta_down, ctrl_down, alt_down):
+def handle_clear(name, config:Config, meta_down:bool, ctrl_down:bool, alt_down:bool):
     ctx = AppContext.get_current()
-    clear_on: str = config.clear_buffer_on_keys
+    clear_on: list[str] = config.clear_buffer_on_keys
     safe_clear = config.just_set_safe_clear
     should_clear = name in clear_on
 
@@ -246,7 +246,7 @@ def handle_code_spacing(left_part, right_part, white_space, config: Config):
 
     return False
 
-
+    
 def captlize_if_needed(to_write, to_write_is_str, config: Config):
     ctx = AppContext.get_current()
     capitalize_after = config.capitalize_after
@@ -313,6 +313,10 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
                     return True
 
             to_write = get_chip_result(word, config)
+            if not skip and to_write == word or to_write is None:
+                to_write = expand_chunking(left_part, flags, config)
+            
+
 
         if to_write is None:
             to_write = word
@@ -357,6 +361,8 @@ def _process_event(event: keyboard.KeyboardEvent, config: Config):
 
     if handle_if_release_event(event, config.toggle_case_on):
         return
+
+    #================EVERY EVENT BELOW THIS POINT IS GUARNEETD TO BE KEY DOWN=============
 
     if handle_space(event, shift_down, config):
         return

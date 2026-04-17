@@ -1,5 +1,6 @@
 import tomllib
 import os
+from chunking import ChunkingType
 from frozen_dict import FrozenDict
 from my_logger import log_info
 from config_manager import ConfigManager
@@ -87,6 +88,9 @@ class Config:
         def get_rare[T](name: str, default: T, expected_type: type[T]) -> T:
             return _get_from_toml("rare", name, config_map, default, expected_type)
 
+        def get_chunking[T](name: str, default: T, expected_type: type[T]) -> T:
+            return _get_from_toml("chunking", name, config_map, default, expected_type)
+
         self.chip_map = _chip_map(_get_section("chips", config_map))
         self.append_chars: list[str] = get_general(
             "append_chars", [".", ",", "!", "?", ";"], list
@@ -97,7 +101,7 @@ class Config:
         self.capitalize_passthrough: list[str] = get_rare(
             "captlize_passthrough", ["'", '"', "`"], list
         )
-        self.auto_apped: bool = get_general("auto_append", True, bool)
+        self.auto_append: bool = get_general("auto_append", True, bool)
         self.toggle_case_on: list[str] = get_general("toggle_case_on", ["shift"], list)
 
         self.clear_buffer_on_keys: list[str] = get_general(
@@ -106,26 +110,6 @@ class Config:
 
         self.just_set_safe_clear: list[str] = get_rare(
             "just_set_safe_clear", ["up", "down"], list
-        )
-
-        self.shift_backspace_included_delimiters: list[str] = get_general(
-            # different kinds of dashes minus,  emdash, endash hyphen
-            "shift_backspace_included_delimiters",
-            ["_", "-", "—", "−", "‐", "uppercase"],
-            list,
-        )
-        self.shift_backspace_excluded_delimiters: list[str] = get_general(
-            "shift_backspace_excluded_delimiters", [" "], list
-        )
-        self.separate_tail: list[str] = get_general(
-            "separate_tail", ["uppercase"], list
-        )
-
-        self.ignored_leading: list[str] = get_rare(
-            "ignored_leading", ['"', "(", "[", "{", "`", "'"], list
-        )
-        self.ignored_trailing: list[str] = get_rare(
-            "ignored_trailing", ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","], list
         )
 
         spacing_type: str = get_code("spacing_type", "normal", str)
@@ -139,6 +123,8 @@ class Config:
         self.port: int = get_ipc("port", DEFAULT_PORT, int)
         self.host: str = get_ipc("host", LOCAL_HOST, str)
         self.ipc_enabled_commands: list[str] = get_ipc("ipc_enabled_commands", [], list)
-        self.buffer_state_timeout_ms: int = get_general(
-            "buffer_state_timeout_ms", 1, int
-        )
+
+        chunking_type: str = get_chunking("chunking_mode", "last", str)
+        self.chunking_type = ChunkingType.safe_from_str(chunking_type, ChunkingType.ALL)
+        self.new_chunks_only: bool = get_chunking("new_chunks_only", False, bool)
+        self.chunking_ignore: list[str] = get_chunking("chunking_ignore", ["'"], list)

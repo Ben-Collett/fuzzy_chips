@@ -5,6 +5,7 @@ from utils import (
     is_all_non_alphanumeric_str,
     to_utf,
     alpha_numericish,
+    split_non_alpha,
     backspaces_to_delete_previous_word,
 )
 
@@ -23,6 +24,19 @@ class TestIsStr:
 
     def test_returns_false_for_non_string(self):
         assert not is_str(["hi", "there"])
+class TestSplitNonAlpha:
+
+
+    @pytest.mark.parametrize("text,excluded,expected", [("",[],[]),
+                                                      ("",[","],[]),
+                                                      ("hi",[],[("hi",False)]),
+                                                      ("hi-there/dog",[],[("hi",False),("-",True),("there",False),("/",True),("dog",False)]),
+                                                      ("hi-there/dog",["/"],[("hi", False),("-", True),("there/dog", False)]),
+                                                      ("hi--there/dog",["/"],[("hi",False),("-",True),("-",True),("there/dog",False)]),
+                                                      ("hi1-there/dog",["-","/"],[("hi1-there/dog",False)]),
+                                                        ])
+    def test_split_non_alpha(self,text,excluded,expected):
+        assert split_non_alpha(text,excluded)==expected
 
 
 class TestIsAllNonAlphanumericStr:

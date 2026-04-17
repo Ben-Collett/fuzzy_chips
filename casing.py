@@ -4,7 +4,7 @@ from collection_utils import ends_with_alnum, is_not_empty_str, starts_with_any
 from collection_utils import captlize, uncaptlize, start_overlap_length, last_char
 from enum_utils import safe_enum_from_str
 from my_logger import log_info
-from utils import compute_upper_count
+from utils import compute_upper_count, reverse_enumerate, split_non_alpha
 DASHES = {"\u002d",  # -
           "\u2010",  # hyphen
           "\u2011",  # non-breaking hyphen
@@ -72,6 +72,14 @@ def _empty_or_upper(s: str):
     return all(ch.isupper() for ch in s )
 
 
+def _non_alpha_last_word(text):
+    split = split_non_alpha(text,[])
+    for v in reversed(split):
+        word, is_sep= v
+        if not is_sep:
+            return word
+    return ""
+
 def determine_code_casing(left_part: str, right_part: str, on_private_assume=Casing.SNAKE) -> Casing:
     """
     tries to determine casing type
@@ -108,6 +116,11 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
             return Casing.UPPER_SNAKE
         return Casing.NORMAL
 
+
+
+
+    left_part = _non_alpha_last_word(left_part)
+    right_part= _non_alpha_last_word(right_part)
     start_is_upper = _first_letter_is_upper(left_part)
 
     upper_count = compute_upper_count(

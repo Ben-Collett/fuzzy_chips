@@ -95,6 +95,8 @@ class TestDetermineCodeCasing:
             ("HELLO_WORLD", "", Casing.UPPER_SNAKE),
             ("_private", "", Casing.SNAKE),
             ("hi=there", "", Casing.NORMAL),
+            ("T", "", Casing.NORMAL),
+            ("t-Th", "", Casing.NORMAL),
             ("hello", "_private", Casing.SNAKE),
         ],
     )

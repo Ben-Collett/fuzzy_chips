@@ -6,14 +6,13 @@ def count_where(pred, iterable):
     return count
 
 
-def start_overlap_length(s1: str, s2: str):
-    length = 0
-    short_length = min(len(s1), len(s2))
-    for i in range(0, short_length):
-        if s1[i] != s2[i]:
+def start_overlap_length(a: str, b: str):
+    count = 0
+    for ch1, ch2 in zip(a, b):
+        if ch1 != ch2:
             break
-        length += 1
-    return length
+        count += 1
+    return count
 
 
 def is_empty(iterable):

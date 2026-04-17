@@ -2,11 +2,10 @@ import pytest
 from unittest.mock import MagicMock
 from frozen_dict import FrozenDict
 from expansion_utils import (
-    _extract_ignored_leading_word_trailing,
+    _partition_non_alnum_edges,
     is_valid_chip_str,
     valid_chip,
     _update_captlization,
-    get_chip_result,
     _last_capital_segment,
     _last_snake_part,
     starts_with_alnum,
@@ -15,24 +14,18 @@ from expansion_utils import (
     _split_last_token,
     shift_press_release,
     expand_code_casing,
-    _split_new_part,
-    _safe_char_check,
+    split_new_part,
     _ends_with_alpha_numeric,
-    _starts_with_alpha_numeric,
     _starts_with_lower,
     _starts_with_upper,
     expand_new,
+    expand_chunking,
 )
 from casing import Casing
+from chunking import ChunkingType
 
 
 class TestExtractIgnoredLeadingWordTrailing:
-    @pytest.fixture
-    def mock_config(self):
-        config = MagicMock()
-        config.ignored_leading = ['"', "'", "("]
-        config.ignored_trailing = ['"', ")", "]"]
-        return config
 
     @pytest.mark.parametrize(
         "word,expected",
@@ -41,8 +34,8 @@ class TestExtractIgnoredLeadingWordTrailing:
             ("hello world", ("", "hello world", "")),
         ],
     )
-    def test_extract_ignored(self, mock_config, word, expected):
-        result = _extract_ignored_leading_word_trailing(word, mock_config)
+    def test_extract_ignored(self, word, expected):
+        result = _partition_non_alnum_edges(word)
         assert result == expected
 
 
@@ -191,7 +184,7 @@ class TestSplitNewPart:
         ],
     )
     def test_split_new_part(self, s, flags, expected):
-        result = _split_new_part(s, flags)
+        result = split_new_part(s, flags)
         assert result == expected
 
 
@@ -207,21 +200,6 @@ class TestEndsWithAlphaNumeric:
     )
     def test_ends_with_alpha_numeric(self, s, expected):
         assert _ends_with_alpha_numeric(s) == expected
-
-
-class TestStartsWithAlphaNumeric:
-    @pytest.mark.parametrize(
-        "s,expected",
-        [
-            ("hello", True),
-            ("1test", True),
-            ("", False),
-            ("!test", False),
-        ],
-    )
-    def test_starts_with_alpha_numeric(self, s, expected):
-        assert _starts_with_alpha_numeric(s) == expected
-
 
 class TestStartsWithLower:
     @pytest.mark.parametrize(
@@ -264,3 +242,94 @@ class TestExpandNew:
     def test_expand_new_multiple_spaces(self, mock_config):
         result = expand_new("hello", [True] * 5, "  ", "world", mock_config)
         assert result == (None, 0)
+
+
+class TestExpandChunking:
+    @pytest.fixture
+    def mock_config(self):
+        config = MagicMock()
+        fd = FrozenDict.from_string("hi")
+        config.chip_map = {fd: "hello"}
+        config.chunking_ignore = ["_"]
+        config.chunking_type = ChunkingType.ALL
+        config.new_chunks_only = False
+        return config
+
+    @pytest.fixture
+    def mock_config_last(self):
+        config = MagicMock()
+        fd = FrozenDict.from_string("hi")
+        config.chip_map = {fd: "hello"}
+        config.chunking_ignore = ["_"]
+        config.chunking_type = ChunkingType.LAST
+        config.new_chunks_only = False
+        return config
+
+    @pytest.fixture
+    def mock_config_new_chunks(self):
+        config = MagicMock()
+        fd = FrozenDict.from_string("hi")
+        config.chip_map = {fd: "hello"}
+        config.chunking_ignore = ["_"]
+        config.chunking_type = ChunkingType.LAST
+        config.new_chunks_only = True
+        return config
+
+    def test_expand_chunking_all_type_expands_all_chunks(self, mock_config):
+        result = expand_chunking("hi hello", [True, True, True, True, True, True, True, True], mock_config)
+        assert result == "hello hello"
+
+    def test_expand_chunking_all_type_no_expansion(self, mock_config):
+        result = expand_chunking("abc def", [True, True, True, True, True, True], mock_config)
+        assert result == "abc def"
+
+    def test_expand_chunking_all_type_with_separators(self, mock_config):
+        result = expand_chunking("hi-hello", [True, True, True, True, True, True], mock_config)
+        assert result == "hello-hello"
+
+    def test_expand_chunking_all_type_expansion_returns_list(self, mock_config):
+        def mock_expand(val, config):
+            if val == "hi":
+                return ["delete", "h", "i"]
+            return val
+        mock_config.chunking_type = ChunkingType.ALL
+        with pytest.MonkeyPatch.context() as mp:
+            mp.setattr("expansion_utils._expand", mock_expand)
+            result = expand_chunking("hi", [True, True], mock_config)
+            assert result == "hi"
+
+    def test_expand_chunking_last_type_expands_last_only(self, mock_config_last):
+        result = expand_chunking("hi hello", [True, True, True, True, True, True, True, True], mock_config_last)
+        assert result == "hi hello"
+
+    def test_expand_chunking_last_type_no_expansion(self, mock_config_last):
+        result = expand_chunking("abc def", [True, True, True, True, True, True], mock_config_last)
+        assert result == "abc def"
+
+    def test_expand_chunking_last_type_with_separators(self, mock_config_last):
+        result = expand_chunking("hi-hello", [True, True, True, True, True, True], mock_config_last)
+        assert result == "hi-hello"
+
+    def test_expand_chunking_with_ignored_chars(self, mock_config):
+        result = expand_chunking("hi-hello", [True, True, True, True, True, True, True, True], mock_config)
+        assert result == "hello-hello"
+
+    def test_expand_chunking_new_chunks_only_with_old_part(self, mock_config_new_chunks):
+        result = expand_chunking("abchi", [False, False, False, True, True], mock_config_new_chunks)
+        assert result == "abchi"
+
+    def test_expand_chunking_new_chunks_only_all_new(self, mock_config_new_chunks):
+        result = expand_chunking("hi", [True, True], mock_config_new_chunks)
+        assert result == "hello"
+
+    def test_expand_chunking_new_chunks_only_empty_new_part(self, mock_config_new_chunks):
+        result = expand_chunking("abc", [False, False, False], mock_config_new_chunks)
+        assert result == "abc"
+
+    def test_expand_chunking_empty_input(self, mock_config):
+        result = expand_chunking("", [], mock_config)
+        assert result == ""
+
+    def test_expand_chunking_mixed_expansion_and_not(self, mock_config):
+        result = expand_chunking("hi abc", [True, True, True, True, True, True], mock_config)
+        assert result == "hello abc"

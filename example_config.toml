@@ -21,6 +21,23 @@ capitalize_after = [".", "!", "?"]
 append_chars = [".", "!", "?", ",", ";", ")", "]", "}"]
 auto_append = false
 
+# chunking takes words that are seperatred by non-alphanumeric characters and expands them individually
+[chunking]
+# none, last, all
+# all will expand all chunks in the last word
+# example: t-tg-th->the-thing-that, assuming t->the tg->thing th->that
+# last will only expand the last word and is the default behavior, although eventually switching to all is advisable for speed, it is easier to mess up using
+# none of disable chunking as it can get in the way if you type a lot of equations
+chunking_type = "last"
+# will only expand chunk that are new so if where in all mode and you typed "t-tg-th" and you did a non-expanding space(shift+space by default) then backspaced back and add -ab-tg only the last part would expand
+# so t-tg-th-about-again
+# this setting is generally advisiable if your using a external program or plugin for your text editor to sync the buffer with your current text
+new_chunks_only = false
+# non alphanumeric characters treated as alphanumeric characters for chunking, ' that way contractions like that's wont expand
+# if you are using things like code casing  likely want _ in the chunking_ignore section
+# while chunking with _ works fine in the forward direction it is not as effective for editing snake case code in post as dedicated code casing and new casing modes
+chunking_ignore = ["'", "_"]
+
 # these settings can be changed but rarely should
 [rare]
 # same as clear_buffer_on unless using ipc if the buffer was just set by ipc then the event won't clear the buffer
@@ -29,19 +46,6 @@ just_set_safe_clear = ["up", "down"]
 # passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized
 # where as 'hi' it will not
 captlize_passthrough = ['"', "'", "`"]
-# WARNING: these options are a little more complicated
-# they allow you to ignore certain leading and trailing characters for chip expansion, for example:
-# if you have hv = have, you probably want "hv to expand to "have and "hv" to expand to "have", this allows you to do that without defining extra chips for every case
-# complexity occurs when you use one of these characters inside of a chip like using w' = we're.
-# in this case if there is an exact match that is you type 'w we will expand the chip if there is not an exact match say you type
-# 'w' we will expand as if you had meant to type w between single quotes, so if w = were then you would get 'were' if w isn't mapped to anything you will just get a w in single quotes
-# having said that I would generally suggest avoiding ignoring any characters you uese inside of your chips for this very reason.
-# or you could remove everything from ignored prefixes and postfixes if you prefer.
-# if you are going to do so then avoid defining chips which are single letters when you have a variant with one of the ignore characters.
-# for example if you define a chip t= the, I would advise against defining 't = anything.
-# these rules only apply to chips which are mapped to strings if a chip maps to a list then it will not obey ignore_leading and ignore_trailing and will only expand for an exact match
-ignored_leading = ['"', "(", "[", "{", "`", "'"]
-ignored_trailing = ['"', ")", "]", "}", "`", "'", ".", "!", "?", ","]
 
 # these settings are only useful for writing code, not natural language
 [code]
