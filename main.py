@@ -273,7 +273,10 @@ def escape_to_normal_casing(white_space):
     return False
 
 
-def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
+def should_do_space_action(shift_down:bool, invert:bool)->bool:
+    return (shift_down and invert) or (not shift_down and not invert)
+
+def handle_space(event: keyboard.KeyboardEvent, shift_down, config:Config):
     ctx = AppContext.get_current()
     append_chars = config.append_chars
     is_space = event.name == "space"
@@ -286,16 +289,18 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config):
         if escape_to_normal_casing(white_space):
             return True
 
+        if not should_do_space_action(shift_down, config.invert_space_actions):
+            return True
         prev_whitespace = ctx._buffer.get_white_space_before_prev_word()
         word, flags = ctx._buffer.get_word_and_new_state(-1)
         prev_word = ctx._buffer.get_word(-2)
 
-        if not shift_down and handle_space_punctuation(
+        if handle_space_punctuation(
             word, append_chars, white_space, prev_whitespace
         ):
             return True
 
-        process_chip = not shift_down and len(white_space) == 1
+        process_chip = len(white_space) == 1
 
         to_write: str | list[str] | None = None
         if process_chip:

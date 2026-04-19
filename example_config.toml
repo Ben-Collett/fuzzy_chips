@@ -1,5 +1,17 @@
 # NOTE: all settings besideds the chips section at the bottom of the file are set equal to their default behavior so if you want the described functionality you don't need  to override that key
 [general]
+# if false when you hit space it will expand chips and append punctations depending on your configuration and if you hit shift+space it will not,
+# invert_space_actions inverts this behavior so shift+space will do the expansions/appending and regular space will not
+# this can theoritocally be easier for beginners as you have to worry about the internal buffers less, but is also theortically the slower approach
+# though still faster then regular typing(theortically).
+#
+# LINUX WARNING: because of how Linux handles typing this gets handled weird on linux,
+# if you use this expression then it will not expand until you release the shift key, and you need to make sure to not hit space
+# again until after you release shift or you might get a space in the middle of the word or a second space before the word.
+# unless the chip is the whole word and is typed correctly, that case would work fine but kind of defeats the purpose of fuzzy chips.
+# this problem only occurs on linux and may be solvable but I will have to work out how modify the keyboard moulde to allow grabbing exclusive access to every keyboard in the keyboard module.
+invert_space_actions = false
+
 # will toggle the case of the previous or current word when you press and release shift without hitting any characters in between.
 toggle_case_on = ["shift"]
 # clear_buffer_on: clears the internal buffer of fuzzy chips when you press the windows key

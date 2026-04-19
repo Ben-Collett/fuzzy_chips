@@ -107,6 +107,9 @@ class Config:
         self.clear_buffer_on_keys: list[str] = get_general(
             "clear_buffer_on", ["windows_down", "alt_down", "ctrl_down"], list
         )
+        self.invert_space_actions: bool = get_general(
+            "invert_space_actions",False,bool
+        )
 
         self.just_set_safe_clear: list[str] = get_rare(
             "just_set_safe_clear", ["up", "down"], list

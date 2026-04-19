@@ -10,6 +10,11 @@ import time
 from ._x11_utils import X11, MODIFIER_KEYCODES
 from ._keyboard_event import KeyboardEvent, KEY_DOWN, KEY_UP
 
+
+def init():
+    pass
+
+
 x = None
 
 x = X11()
@@ -128,21 +133,17 @@ def _update_auto_repeat_settings():
         pass  # Use defaults if query fails
 
 
-def init():
-    pass
-
-
 def map_name(name):
     return x.map_name(name)
 
 
-def press(code: int):
+def press(code: int, shiftpressed: bool = False):
     if code in down_keys:
         x.release_keycode(code)
     x.press_keycode(code)
 
 
-def release(code: int):
+def release(code: int, shiftpressed: bool = False):
     x.release_keycode(code)
 
 
