@@ -82,7 +82,8 @@ def backspace_then_write(backspace_count, to_write, update_expected=True):
         if is_str(to_write):
             ctx.expected_counter = backspace_count + len(to_write)
         else:
-            ctx.expected_counter = backspace_count + _non_command_count(to_write)
+            ctx.expected_counter = backspace_count + \
+                _non_command_count(to_write)
     backspace(backspace_count)
     write(to_write)
 
@@ -93,7 +94,8 @@ def delete_previous_word(_: list[str]):
 
     ctx._buffer.backspace()
 
-    back_count = max(determine_amount_to_backspace_shift_backspace(buffer) - 1, 0)
+    back_count = max(
+        determine_amount_to_backspace_shift_backspace(buffer) - 1, 0)
     to_write = ""
     if (
         ctx.current_casing.is_not_normal_casing
@@ -103,10 +105,10 @@ def delete_previous_word(_: list[str]):
     backspace_then_write(back_count, to_write, update_expected=True)
 
 
-def handle_auto_append(event, config:Config):
+def handle_auto_append(event, config: Config):
     name = event.name
-    auto_append = config.auto_append
-    append_chars = config.append_chars
+    auto_append = config.general.auto_append
+    append_chars = config.general.append_chars
     ctx = AppContext.get_current()
     if auto_append and name in append_chars:
         leading_whitespace = ctx._buffer.get_trailing_white_space()
@@ -114,7 +116,8 @@ def handle_auto_append(event, config:Config):
             ctx._buffer.add(name)
             backspace_count = len(leading_whitespace) + 1
             to_write = name + leading_whitespace
-            backspace_then_write(backspace_count, to_write, update_expected=True)
+            backspace_then_write(backspace_count, to_write,
+                                 update_expected=True)
 
             return True
     return False
@@ -151,10 +154,10 @@ def handle_backspace(event, shift_down):
     return False
 
 
-def handle_clear(name, config:Config, meta_down:bool, ctrl_down:bool, alt_down:bool):
+def handle_clear(name, config: Config, meta_down: bool, ctrl_down: bool, alt_down: bool):
     ctx = AppContext.get_current()
-    clear_on: list[str] = config.clear_buffer_on_keys
-    safe_clear = config.just_set_safe_clear
+    clear_on: list[str] = config.general.clear_buffer_on
+    safe_clear = config.rare.just_set_safe_clear
     should_clear = name in clear_on
 
     if "windows_down" in clear_on:
@@ -199,7 +202,7 @@ def handle_new_space(
     new_flags: list[bool],
     config: Config,
 ) -> bool:
-    if config.spacing_type != SpacingType.NEW:
+    if config.code.spacing_type != SpacingType.NEW:
         return False
     to_write, back_count = expand_new(
         left_part, new_flags, white_space, right_part, config
@@ -228,7 +231,7 @@ def get_left_right_part(word: str) -> tuple[str, str]:
 
 def handle_code_spacing(left_part, right_part, white_space, config: Config):
 
-    if config.spacing_type != SpacingType.CODE:
+    if config.code.spacing_type != SpacingType.CODE:
         return False
     if len(white_space) > 1:
         left_part = ""
@@ -246,11 +249,11 @@ def handle_code_spacing(left_part, right_part, white_space, config: Config):
 
     return False
 
-    
+
 def captlize_if_needed(to_write, to_write_is_str, config: Config):
     ctx = AppContext.get_current()
-    capitalize_after = config.capitalize_after
-    captlize_passthrough = config.capitalize_passthrough
+    capitalize_after = config.general.capitalize_after
+    captlize_passthrough = config.rare.captlize_passthrough
 
     should_capitalize = (
         ctx.current_casing.is_normal_casing
@@ -273,12 +276,13 @@ def escape_to_normal_casing(white_space):
     return False
 
 
-def should_do_space_action(shift_down:bool, invert:bool)->bool:
+def should_do_space_action(shift_down: bool, invert: bool) -> bool:
     return (shift_down and invert) or (not shift_down and not invert)
 
-def handle_space(event: keyboard.KeyboardEvent, shift_down, config:Config):
+
+def handle_space(event: keyboard.KeyboardEvent, shift_down, config: Config):
     ctx = AppContext.get_current()
-    append_chars = config.append_chars
+    append_chars = config.general.append_chars
     is_space = event.name == "space"
     pressed_key = event.event_type == keyboard.KEY_DOWN
     typing = ctx.expected_counter > 0
@@ -289,7 +293,7 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config:Config):
         if escape_to_normal_casing(white_space):
             return True
 
-        if not should_do_space_action(shift_down, config.invert_space_actions):
+        if not should_do_space_action(shift_down, config.general.invert_space_actions):
             return True
         prev_whitespace = ctx._buffer.get_white_space_before_prev_word()
         word, flags = ctx._buffer.get_word_and_new_state(-1)
@@ -303,7 +307,9 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config:Config):
         process_chip = len(white_space) == 1
 
         to_write: str | list[str] | None = None
+        skip = False
         if process_chip:
+            left_part, right_part = "", ""
             if ctx.current_casing == Casing.NORMAL:
                 left_part, right_part = get_left_right_part(word)
                 skip = is_all_non_alphanumeric_str(left_part)
@@ -320,8 +326,6 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config:Config):
             to_write = get_chip_result(word, config)
             if not skip and to_write == word or to_write is None:
                 to_write = expand_chunking(left_part, flags, config)
-            
-
 
         if to_write is None:
             to_write = word
@@ -342,7 +346,8 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config:Config):
             to_backspace_count = len(word) + 1 - overlapping_start + prepended
             if to_write_is_str:
                 to_write += " "
-            backspace_then_write(to_backspace_count, to_write, update_expected=True)
+            backspace_then_write(to_backspace_count,
+                                 to_write, update_expected=True)
         return True
     return False
 
@@ -364,10 +369,10 @@ def _process_event(event: keyboard.KeyboardEvent, config: Config):
     if handle_backspace(event, shift_down):
         return
 
-    if handle_if_release_event(event, config.toggle_case_on):
+    if handle_if_release_event(event, config.general.toggle_case_on):
         return
 
-    #================EVERY EVENT BELOW THIS POINT IS GUARNEETD TO BE KEY DOWN=============
+    # ================EVERY EVENT BELOW THIS POINT IS GUARNEETD TO BE KEY DOWN=============
 
     if handle_space(event, shift_down, config):
         return

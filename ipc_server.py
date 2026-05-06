@@ -21,11 +21,11 @@ class IPCServer:
 
     @property
     def host(self):
-        return self.config.host
+        return self.config.ipc.host
 
     @property
     def port(self):
-        return self.config.port
+        return self.config.ipc.port
 
     def start(self):
         """Start the IPC server in a separate thread."""
@@ -55,7 +55,8 @@ class IPCServer:
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         # Allows fast restart on Unix + Windows
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.server_socket.setsockopt(
+            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(5)
@@ -126,7 +127,8 @@ class IPCServer:
                         response = "invalid"
 
                     client_socket.sendall(
-                        f"{len(response)}\n".encode("ascii") + response.encode("utf-8")
+                        f"{len(response)}\n".encode("ascii") +
+                        response.encode("utf-8")
                     )
 
         except (socket.timeout, ConnectionResetError):

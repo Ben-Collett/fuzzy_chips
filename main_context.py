@@ -1,11 +1,11 @@
 import threading
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 from buffer import KeyBuffer
 from casing import Casing
 from command_processor import CommandProcessor
+from config_utils import create_config
 from keyboard import KeyboardEvent
 from config import Config
-from config_manager import ConfigManager
 
 if TYPE_CHECKING:
     from main import AppContext
@@ -36,7 +36,7 @@ class AppContext:
     def initialize(cls) -> "AppContext":
         ctx = cls()
         cls._current = ctx
-        ctx.config = Config.load(ConfigManager("fuzzy_chips"))
+        ctx.config = create_config()
         ctx.command_processor = cls._make_processor(ctx)
         cls._update_ipc_enabled(ctx)
         return ctx
@@ -51,7 +51,7 @@ class AppContext:
     @staticmethod
     def _update_ipc_enabled(ctx: "AppContext"):
         ctx.command_processor.ipc_commands.clear()
-        ctx.ipc_enabled = list(ctx.config.ipc_enabled_commands)
+        ctx.ipc_enabled = list(ctx.config.ipc.ipc_enabled_commands)
         for command in ctx.command_processor._commands.keys():
             if command in ctx.ipc_enabled:
                 ctx.command_processor.ipc_commands.add(command)

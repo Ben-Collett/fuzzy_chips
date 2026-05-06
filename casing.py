@@ -3,8 +3,7 @@ from collection_utils import no_overlap, ends_with_any, starts_with_alnum
 from collection_utils import ends_with_alnum, is_not_empty_str, starts_with_any
 from collection_utils import captlize, uncaptlize, start_overlap_length, last_char
 from enum_utils import safe_enum_from_str
-from my_logger import log_info
-from utils import compute_upper_count, reverse_enumerate, split_non_alpha
+from utils import compute_upper_count,  split_non_alpha
 DASHES = {"\u002d",  # -
           "\u2010",  # hyphen
           "\u2011",  # non-breaking hyphen
@@ -35,13 +34,15 @@ class Casing(Enum):
         return self != Casing.NORMAL
 
     @staticmethod
-    def safe_from_str(casing: str, default):
-        err_msg= f"assumed casing: {casing} is not a valid casing type, defaulting to {default}"
-        return safe_enum_from_str(Casing,casing,default,err_msg)
+    def safe_from_str(casing: str, default) -> "Casing":
+        err_msg = f"assumed casing: {
+            casing} is not a valid casing type, defaulting to {default}"
+        return safe_enum_from_str(Casing, casing, default, err_msg)
 
 
 def is_dash(ch: str) -> bool:
     return ch in DASHES
+
 
 def _first_letter_is_upper(s: str):
     for ch in s:
@@ -69,16 +70,17 @@ def _upper_trailing_non_underscore_special(s: str, on_empty=False):
 
 
 def _empty_or_upper(s: str):
-    return all(ch.isupper() for ch in s )
+    return all(ch.isupper() for ch in s)
 
 
 def _non_alpha_last_word(text):
-    split = split_non_alpha(text,[])
+    split = split_non_alpha(text, [])
     for v in reversed(split):
-        word, is_sep= v
+        word, is_sep = v
         if not is_sep:
             return word
     return ""
+
 
 def determine_code_casing(left_part: str, right_part: str, on_private_assume=Casing.SNAKE) -> Casing:
     """
@@ -116,11 +118,8 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
             return Casing.UPPER_SNAKE
         return Casing.NORMAL
 
-
-
-
     left_part = _non_alpha_last_word(left_part)
-    right_part= _non_alpha_last_word(right_part)
+    right_part = _non_alpha_last_word(right_part)
     start_is_upper = _first_letter_is_upper(left_part)
 
     upper_count = compute_upper_count(

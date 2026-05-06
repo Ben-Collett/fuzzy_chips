@@ -6,6 +6,7 @@ from config import Config
 from casing import Casing
 from my_logger import log_info
 from typing import Callable
+from config_utils import reload_config
 
 
 def activate_casing(casing: Casing):
@@ -82,14 +83,15 @@ def activate_camel_mode(_: list[str]):
     activate_casing(Casing.CAMEL)
 
 
-def cmd_reload(config: Config, _):
+def cmd_reload(config: Config,  _):
     log_info("reloading")
-    config.reload()
+    reload_config(config)
 
 
 def make_processor(config: Config):
     command_processor = CommandProcessor()
-    command_processor.register("reload_config", lambda _: cmd_reload(config, _))
+    command_processor.register(
+        "reload_config", lambda _: cmd_reload(config,  _))
 
     command_processor.register("restart", restart)
     command_processor.register("quit", terminate)

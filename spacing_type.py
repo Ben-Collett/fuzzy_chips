@@ -12,4 +12,4 @@ class SpacingType(Enum):
         err_msg = None
         if print_on_err:
             err_msg = f"is not a valid spacing type, defaulting to {default}"
-        return safe_enum_from_str(SpacingType,spacing_type,default,err_msg)
+        return safe_enum_from_str(SpacingType, spacing_type, default, err_msg)

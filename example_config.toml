@@ -1,10 +1,11 @@
 # NOTE: all settings besideds the chips section at the bottom of the file are set equal to their default behavior so if you want the described functionality you don't need  to override that key
+
 [general]
 # if false when you hit space it will expand chips and append punctations depending on your configuration and if you hit shift+space it will not,
 # invert_space_actions inverts this behavior so shift+space will do the expansions/appending and regular space will not
 # this can theoritocally be easier for beginners as you have to worry about the internal buffers less, but is also theortically the slower approach
 # though still faster then regular typing(theortically).
-#
+
 # LINUX WARNING: because of how Linux handles typing this gets handled weird on linux,
 # if you use this expression then it will not expand until you release the shift key, and you need to make sure to not hit space
 # again until after you release shift or you might get a space in the middle of the word or a second space before the word.
@@ -14,6 +15,7 @@ invert_space_actions = false
 
 # will toggle the case of the previous or current word when you press and release shift without hitting any characters in between.
 toggle_case_on = ["shift"]
+
 # clear_buffer_on: clears the internal buffer of fuzzy chips when you press the windows key
 # left,right, up,down are all arrow keys and windows_down test if the windows/meta/gui key is down "alt_down", "ctrl_down" are also options do the same thing for their respective modifier,
 # be mindful of however you keyremapper handles keyoverloading if you use one
@@ -24,8 +26,9 @@ clear_buffer_on = ["windows_down", "ctrl_down", "alt_down"]
 
 # if the previous word ends with one of these characters then the current word will be capitalized once you hit space
 # set to an empty list to avoid any auto captlizing
-# capitalize_after = []
+## capitalize_after = []
 capitalize_after = [".", "!", "?"]
+
 # append_chars have special behavior depending on the setting of auto_append
 # if true when pressing an append char it will be automatically appended to the previous word in the buffer and white space will be restored
 # if false then it won't append until you press space and will fail to do so if you press shift+space
@@ -33,12 +36,11 @@ capitalize_after = [".", "!", "?"]
 append_chars = [".", "!", "?", ",", ";", ")", "]", "}"]
 auto_append = false
 
-# chunking takes words that are seperatred by non-alphanumeric characters and expands them individually
 [chunking]
 # none, last, all
 # all will expand all chunks in the last word
 # example: t-tg-th->the-thing-that, assuming t->the tg->thing th->that
-# last will only expand the last word and is the default behavior, although eventually switching to all is advisable for speed, it is easier to mess up using
+# last will only expand the last word and is the default behavior, although witching to all can be faster for certain workflows, it is easier to mess up using
 # none of disable chunking as it can get in the way if you type a lot of equations
 chunking_type = "last"
 # will only expand chunk that are new so if where in all mode and you typed "t-tg-th" and you did a non-expanding space(shift+space by default) then backspaced back and add -ab-tg only the last part would expand
@@ -50,36 +52,37 @@ new_chunks_only = false
 # while chunking with _ works fine in the forward direction it is not as effective for editing snake case code in post as dedicated code casing and new casing modes
 chunking_ignore = ["'", "_"]
 
-# these settings can be changed but rarely should
 [rare]
+# these settings can be changed but rarely should
 # same as clear_buffer_on unless using ipc if the buffer was just set by ipc then the event won't clear the buffer
 just_set_safe_clear = ["up", "down"]
 
 # passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized
 # where as 'hi' it will not
-captlize_passthrough = ['"', "'", "`"]
+captlize_passthrough = ["\"", "'", "`"]
 
-# these settings are only useful for writing code, not natural language
 [code]
 # WARNING: these setting does nothing when not in normal casing mode.
 # normal -> best for natural language
 # code -> nice for coding breaks some natural language use cases
 # new -> also nice for coding work well with fuzzychips and with chording systems.
-#
+
 # if code spacing is used then the casing of the current word is detected and used
 # so if you have something in cammel case like "helloT" and you press space it would expand to "helloThe"
 # this breaks the use case like this tH would normally expand to something like That but instead would expand to tHere
 # this allows you to modify in the middle of words as well and also supports snake casing, when spacing after typing something at the
 # end of a snake cased variable it will type an _ until you hit space again
+
 # so hello_there+space becomes hello_there_ if you do space again it becomes "hello_there "
 # if you press space when doing cammel case if it wouldn't change anything then it will just put a space between the words or afterwards if it would expand something then it will expand and not insert a space
 # propercase and UPPER_SNAKE_CASE are also detected and supported kebab is not currently
-#
+
 # new spacing works similar to code spacing except it uses only new characters typed and will treat the new characters typed as a whole word
 # so if you have hello_there_person
 # and you type hello_th<t space>ere_person it will expand to hello_th_the_ere_person
 # cammel,snake,UPPER_SNAKE,ProperCase, normal are all supported
 spacing_type = "normal"
+
 # this setting only applies to new mode, everything typed except when detected otherwise will be assumed to be in this mode
 # ex: if it is set to cammel casing then "hello_there<t space>" will still expand to hello_there_the
 # however "hello<t space>" will expand to helloThe
@@ -94,12 +97,14 @@ space_on_new = true
 [ipc]
 # uses a tcp socket
 port = 8765
-host = "127.0.0.1"  # local host, I can't think of a reason to change this but it's here
+host = "127.0.0.1"
+
 # commands that can be sent through ipc, all disabled by default
 # works nicely with this neovim plugin: https://github.com/Ben-Collett/chipped.nvim
 # do keep in mind any program can access these commands even a malicouse one(theoretically atleast)
 # highly unlikely for a attack area since most commands can't really be used in a very harmful way for most users
 # plus pretty much no one is using fuzzy chips so there is no inscentive to try to exploit it.
+
 ipc_enabled_commands = [
   # With thee commands a prakster could theortically prevent you from typing in normal mode with this I guess
   # though why they would I don't know, and it is pretty pointless if you have a chip set up to quit the program
@@ -119,154 +124,153 @@ ipc_enabled_commands = [
   # like if you used a crypto wallett or something like that it could be bad.
 
   # although a bad actor with the remote code execution required to do that could probably do worse...
-  # "rl",  # reload config
-  # "rs",  # restart program
+  # "rl",  # reload config "rs",  # restart program
 ]
 
+[chips]
 # chips can be a list of keys or a string of characters, if its a list each element must be a valid key name
 # if it is a string then space will be automatically added at the end when triggering the chip this is not true for list in that case you must end with a space key if you want to space
-[chips]
 # examples using a list very nice for after you type something like th for that and then hitting 's to make that's
 "'s" = ["backspace", "'", "s", "space"]
 "n't" = ["backspace", "n", "'", "t", "space"]
 "'l" = ["backspace", "'", "l", "l", "space"]
 
-# in toml you can choose to put keys in quotes unless there are special characters like ' or . I would recommend putting all chips in quotes
-# for consistency but it is entirely optional
 rl = ["reload_config"]
-"qui" = ["quit"]
-"ras" = ["restart"]
-"cl" = ["clear_buffer"]
+qui = ["quit"]
+ras = ["restart"]
+cl = ["clear_buffer"]
 
 "-" = ["kebab-case-mode"]
-"nm" = ["normal case mode"]
-"_" = ["snake_case_mode"]
-"__" = ["UPPER_SNAKE_CASE_MODE"]
-"pm" = ["ProperCaseMode"]
-"cmm" = ["camelCaseMode"]
+nm = ["normal case mode"]
+_ = ["snake_case_mode"]
+__ = ["UPPER_SNAKE_CASE_MODE"]
+pm = ["ProperCaseMode"]
+cmm = ["camelCaseMode"]
 
-"t," = "this is dumb, but legal and useful for testing"  # just keep in mind if you do this and you have auto append on and , set to append you better hit t before ,
+"t," = "this is dumb, but legal and useful for testing"
 # you can use to to make typing a word order independent, example ta = at or toni = into
-"at" = "at"
-"it" = "it"
-"in" = "in"
+at = "at"
+it = "it"
+in = "in"
+
 # I on it's own is always captlized(if your not doing coding/math)
-"i" = "I"
+i = "I"
 # abbreviations for speed, they can even be a single letter!
-"d" = "and"
-"r" = "are"
+d = "and"
+r = "are"
 # or reuse letters
-"ppl" = "people"
+ppl = "people"
 # you can also map to multiple words
-"mws" = "this is multiple words isn't that cool"
+mws = "this is multiple words isn't that cool"
 # keep in mind since order doesn't matter you probably don't want to overried on to be on since it is the same as no
-"o" = "on"
-"n" = "no"
+o = "on"
+n = "no"
+
 # You can use non-letters just keep in mind your ignored prefixes and postfixes
 "w'" = "we're"
-# ================== nothing new below this point just more examples ===============================
-"is" = "is"
-"of" = "of"
-"to" = "to"
-"so" = "so"
-"be" = "be"
-"into" = "into"
-"do" = "do"
-"us" = "us"
-"an" = "an"
-"by" = "by"
-"up" = "up"
-"or" = "or"
-"ag" = "anything"
-"go" = "go"
-"he" = "he"
-"me" = "me"
-"if" = "if"
-"we" = "we"
-"as" = "as"
-"am" = "am"
-"my" = "my"
-"his" = "his"
-"now" = "now"
-"y" = "you"
-"f" = "for"
-"g" = "get"
-"c" = "can"
-"b" = "be"
-"t" = "the"
-"tt" = "the"
-"js" = "just"
-"nv" = "never"
-"th" = "that"
-"bu" = "but"
-"ar" = "are"
-"nt" = "not"
-"yr" = "your"
-"al" = "all"
-"hv" = "have"
-"aw" = "was"
-"ts" = "this"
-"wt" = "what"
-"ty" = "they"
-"wn" = "when"
-"kw" = "know"
-"oe" = "one"
-"tr" = "there"
-"lk" = "like"
-"wi" = "will"
-"ig" = "it's"
-"dn" = "don't"
-"im" = "I'm"
-"iv" = "I've"
-"lf" = "life"
-"tm" = "time"
-"ow" = "who"
-"ou" = "out"
-"et" = "them"
-"ab" = "about"
-"mr" = "more"
-"yo" = "you're"
-"hd" = "had"
-"ur" = "our"
-"ly" = "only"
-"hw" = "how"
-"tg" = "thing"
-"eg" = "enough"
-"se" = "see"
-"rw" = "were"
-"lv" = "live"
-"ov" = "love"
-"jt" = "than"
-"ei" = "their"
-"bj" = "because"
-"bk" = "back"
-"bl" = "black"
-"bh" = "behind"
-"bo" = "before"
-"tk" = "think"
-"mk" = "make"
-"en" = "then"
-"sm" = "some"
-"sg" = "something"
-"bn" = "been"
-"ej" = "end"
-"ev" = "even"
-"wy" = "way"
-"hm" = "him"
-"cu" = "could"
-"dy" = "day"
-"hs" = "has"
-"oj" = "other"
-"aj" = "another"
-"ys" = "yes"
-"ye" = "you're"
-"yv" = "you've"
-"di" = "did"
-"wht" = "with"
-"wnt" = "want"
-"ghs" = "things"
-"wor" = "word"
-"wrl" = "world"
-"wul" = "would"
-"frm" = "from"
-"dif" = "different"
+# =================== nothing new below this point just more examples ===============================
+is = "is"
+of = "of"
+to = "to"
+so = "so"
+be = "be"
+into = "into"
+do = "do"
+us = "us"
+an = "an"
+by = "by"
+up = "up"
+or = "or"
+ag = "anything"
+go = "go"
+he = "he"
+me = "me"
+if = "if"
+we = "we"
+as = "as"
+am = "am"
+my = "my"
+his = "his"
+now = "now"
+y = "you"
+f = "for"
+g = "get"
+c = "can"
+b = "be"
+t = "the"
+tt = "the"
+js = "just"
+nv = "never"
+th = "that"
+bu = "but"
+ar = "are"
+nt = "not"
+yr = "your"
+al = "all"
+hv = "have"
+aw = "was"
+ts = "this"
+wt = "what"
+ty = "they"
+wn = "when"
+kw = "know"
+oe = "one"
+tr = "there"
+lk = "like"
+wi = "will"
+ig = "it's"
+dn = "don't"
+im = "I'm"
+iv = "I've"
+lf = "life"
+tm = "time"
+ow = "who"
+ou = "out"
+et = "them"
+ab = "about"
+mr = "more"
+yo = "you're"
+hd = "had"
+ur = "our"
+ly = "only"
+hw = "how"
+tg = "thing"
+eg = "enough"
+se = "see"
+rw = "were"
+lv = "live"
+ov = "love"
+jt = "than"
+ei = "their"
+bj = "because"
+bk = "back"
+bl = "black"
+bh = "behind"
+bo = "before"
+tk = "think"
+mk = "make"
+en = "then"
+sm = "some"
+sg = "something"
+bn = "been"
+ej = "end"
+ev = "even"
+wy = "way"
+hm = "him"
+cu = "could"
+dy = "day"
+hs = "has"
+oj = "other"
+aj = "another"
+ys = "yes"
+ye = "you're"
+yv = "you've"
+di = "did"
+wht = "with"
+wnt = "want"
+ghs = "things"
+wor = "word"
+wrl = "world"
+wul = "would"
+frm = "from"
+dif = "different"

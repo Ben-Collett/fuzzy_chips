@@ -1,133 +1,186 @@
-import tomllib
-import os
-from chunking import ChunkingType
-from frozen_dict import FrozenDict
-from my_logger import log_info
-from config_manager import ConfigManager
+# auto generated
+import math
 from spacing_type import SpacingType
 from casing import Casing
-from constants import DEFAULT_PORT, LOCAL_HOST
+from chunking import ChunkingType
+from config_support import load_chips
+
+class _ExpectedField:
+    def __init__(self, default_value=None, cftype=None):
+        self.default_value = default_value
+        self.cftype = cftype
 
 
-def _load_toml(config_manager: ConfigManager) -> dict:
-    CONFIG_FILE_NAME = "config.toml"
-    path = ""
-    if os.path.exists(CONFIG_FILE_NAME):
-        path = CONFIG_FILE_NAME
-    else:
-        path = config_manager.find_config_file(CONFIG_FILE_NAME)
-
-    if not os.path.exists(path):
-        log_info("no config found")
-        return {"chips": {}}
-
-    with open(path, "rb") as file:
-        data = tomllib.load(file)
-    if "chips" not in data:
-        data["chips"] = {}
-    return data
+class _ExpectedList:
+    def __init__(self, default_value=None, cftype=None, min_length=0, max_length=math.inf):
+        default_value = default_value or []
+        self.default_value = default_value
+        self.cftype = cftype
+        self.min_length = min_length
+        self.max_length = max_length
 
 
-def _chip_map(chips) -> dict[FrozenDict, str]:
-    out = {}
-    for k, v in chips.items():
-        key = FrozenDict.from_string(k)
-        if key in out.keys():
-            old_val = out[key]
-            log_info(f"colliding key overridng: {k}={old_val} with {k} = {v}")
+class _ExpectedDict:
+    def __init__(self, default_value=None, key_type=None, value_type=None, min_length=0, max_length=math.inf):
+        default_value = default_value or {}
+        self.default_value = default_value
+        self.key_type = key_type
+        self.cftype = value_type
+        self.min_length = min_length
+        self.max_length = max_length
 
-        out[key] = v
-    return out
+def _check_type(value, expected_type) -> bool:
+    if expected_type is None:
+        return True
+    if expected_type == bool:
+        return isinstance(value, bool)
+    if expected_type == int:
+        return isinstance(value, int) and not isinstance(value, bool)
+    if expected_type == str:
+        return isinstance(value, str)
+    if expected_type == float:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if expected_type == list:
+        return isinstance(value, list)
+    if expected_type == dict:
+        return isinstance(value, dict)
+    return isinstance(value, expected_type)
 
+def _merge_expected(config_map: dict, expected_map: dict, ignored_sections=set(), ignored_keys=set()) -> dict:
+    result = {}
 
-def _get_section(section, config_map):
-    if section in config_map:
-        return config_map[section]
-    return {}
+    for section_name, section_expected in expected_map.items():
+        result[section_name] = {}
+        for field_name, field_expected in section_expected.items():
+            result[section_name][field_name] = field_expected.default_value
 
+    for section_name, section_config in config_map.items():
+        if section_name not in expected_map:
+            if section_name in ignored_sections:
+                result[section_name] = section_config.copy()
+            else:
+                print(f"Unused section: {section_name}")
+            continue
 
-def _get_from_toml[T](
-    section: str, name: str, config_map: dict, default: T, expected_type: type[T]
-) -> T:
-    if section in config_map and name in config_map[section]:
-        value = config_map[section][name]
-        if isinstance(value, expected_type):
-            return value
-        log_info(
-            f"config [{section}].[name] expected {expected_type.__name__}, got {type(value).__name__}; using default"
-        )
-    return default
+        if not isinstance(section_config, dict):
+            print(f"Type error in section '{section_name}': expected dict, got {type(section_config).__name__}")
+            continue
 
+        for field_name, field_value in section_config.items():
+            if field_name not in expected_map[section_name]:
+                if field_name in ignored_keys or section_name in ignored_sections:
+                    result[section_name][field_name] = field_value
+                else:
+                    print(f"Unused field: {section_name}.{field_name}")
+                continue
+
+            field_expected = expected_map[section_name][field_name]
+
+            if isinstance(field_expected, _ExpectedField):
+                if _check_type(field_value, field_expected.cftype):
+                    result[section_name][field_name] = field_value
+                else:
+                    print(f"Type error: {section_name}.{field_name} expected {field_expected.cftype}, got {type(field_value).__name__}")
+
+            elif isinstance(field_expected, _ExpectedList):
+                if not isinstance(field_value, list):
+                    print(f"Type error: {section_name}.{field_name} expected list, got {type(field_value).__name__}")
+                elif field_expected.cftype and not all(_check_type(v, field_expected.cftype) for v in field_value):
+                    print(f"Type error: {section_name}.{field_name} expected list of {field_expected.cftype}")
+                elif not (field_expected.min_length <= len(field_value) <= field_expected.max_length):
+                    print(f"Length error: {section_name}.{field_name} length {len(field_value)} not in range [{field_expected.min_length}, {field_expected.max_length}]")
+                else:
+                    result[section_name][field_name] = field_value
+
+            elif isinstance(field_expected, _ExpectedDict):
+                if not isinstance(field_value, dict):
+                    print(f"Type error: {section_name}.{field_name} expected dict, got {type(field_value).__name__}")
+                elif field_expected.key_type and not all(_check_type(k, field_expected.key_type) for k in field_value.keys()):
+                    print(f"Type error: {section_name}.{field_name} expected dict with keys of {field_expected.key_type}")
+                elif field_expected.cftype and not all(_check_type(v, field_expected.cftype) for v in field_value.values()):
+                    print(f"Type error: {section_name}.{field_name} expected dict with values of {field_expected.cftype}")
+                elif not (field_expected.min_length <= len(field_value) <= field_expected.max_length):
+                    print(f"Length error: {section_name}.{field_name} length {len(field_value)} not in range [{field_expected.min_length}, {field_expected.max_length}]")
+                else:
+                    result[section_name][field_name] = field_value
+
+    return result
+
+def _get_expected_map():
+    return {"general": {"invert_space_actions": _ExpectedField(False, bool), "toggle_case_on": _ExpectedList(["shift"]), "clear_buffer_on": _ExpectedList(["windows_down", "ctrl_down", "alt_down"]), "capitalize_after": _ExpectedList([".", "!", "?"]), "append_chars": _ExpectedList([".", "!", "?", ",", ";", ")", "]", "}"]), "auto_append": _ExpectedField(False, bool)}, "chunking": {"chunking_type": _ExpectedField("last", str), "new_chunks_only": _ExpectedField(False, bool), "chunking_ignore": _ExpectedList(["'", "_"])}, "rare": {"just_set_safe_clear": _ExpectedList(["up", "down"]), "captlize_passthrough": _ExpectedList(["\"", "'", "`"])}, "code": {"spacing_type": _ExpectedField("normal", str), "assumed_casing": _ExpectedField("normal", str), "space_on_new": _ExpectedField(True, bool)}, "ipc": {"port": _ExpectedField(8765, int), "host": _ExpectedField("127.0.0.1", str), "ipc_enabled_commands": _ExpectedList([], str)}}
 
 class Config:
-    def __init__(self, config_map=None, config_manager=None):
-        self._config_manager = config_manager
-        self.update(config_map)
-
-    @classmethod
-    def load(cls, config_manager: ConfigManager) -> "Config":
-        return cls(_load_toml(config_manager), config_manager)
-
-    def reload(self):
-        if self._config_manager is None:
-            raise RuntimeError("config_manager not set, cannot reload")
-        self.update(_load_toml(self._config_manager))
-
-    def update(self, config_map=None):
-        config_map = config_map or {}
-
-        def get_code[T](name: str, default: T, expected_type: type[T]) -> T:
-            return _get_from_toml("code", name, config_map, default, expected_type)
-
-        def get_general[T](name: str, default: T, expected_type: type[T]) -> T:
-            return _get_from_toml("general", name, config_map, default, expected_type)
-
-        def get_ipc[T](name: str, default: T, expected_type: type[T]) -> T:
-            return _get_from_toml("ipc", name, config_map, default, expected_type)
-
-        def get_rare[T](name: str, default: T, expected_type: type[T]) -> T:
-            return _get_from_toml("rare", name, config_map, default, expected_type)
-
-        def get_chunking[T](name: str, default: T, expected_type: type[T]) -> T:
-            return _get_from_toml("chunking", name, config_map, default, expected_type)
-
-        self.chip_map = _chip_map(_get_section("chips", config_map))
-        self.append_chars: list[str] = get_general(
-            "append_chars", [".", ",", "!", "?", ";"], list
+    def __init__(self, config_map: dict | None = None):
+        if not config_map:
+            config_map = {}
+        merged = _merge_expected(
+            config_map, _get_expected_map()
+            , ignored_keys=["'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'chips'}
         )
-        self.capitalize_after: list[str] = get_general(
-            "capitalize_after", [".", "!", "?"], list
-        )
-        self.capitalize_passthrough: list[str] = get_rare(
-            "captlize_passthrough", ["'", '"', "`"], list
-        )
-        self.auto_append: bool = get_general("auto_append", True, bool)
-        self.toggle_case_on: list[str] = get_general("toggle_case_on", ["shift"], list)
+        self.general = GeneralSection(merged["general"])
+        self.chunking = ChunkingSection(merged["chunking"])
+        self.rare = RareSection(merged["rare"])
+        self.code = CodeSection(merged["code"])
+        self.ipc = IpcSection(merged["ipc"])
+        self.chips: dict = load_chips(merged)
 
-        self.clear_buffer_on_keys: list[str] = get_general(
-            "clear_buffer_on", ["windows_down", "alt_down", "ctrl_down"], list
+    def update(self, config_map: dict | None = None):
+        if not config_map:
+            config_map = {}
+        merged = _merge_expected(
+            config_map, _get_expected_map()
+            , ignored_keys=["'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'chips'}
         )
-        self.invert_space_actions: bool = get_general(
-            "invert_space_actions",False,bool
-        )
+        self.general.update(merged["general"])
+        self.chunking.update(merged["chunking"])
+        self.rare.update(merged["rare"])
+        self.code.update(merged["code"])
+        self.ipc.update(merged["ipc"])
+        self.chips: dict = load_chips(merged)
 
-        self.just_set_safe_clear: list[str] = get_rare(
-            "just_set_safe_clear", ["up", "down"], list
-        )
+class GeneralSection:
+    def __init__(self, smap: dict):
+        self.update(smap)
 
-        spacing_type: str = get_code("spacing_type", "normal", str)
-        self.spacing_type = SpacingType.safe_from_str(
-            spacing_type, SpacingType.NORMAL, print_on_err=True
-        )
+    def update(self, smap: dict):
+        self.invert_space_actions: bool = smap["invert_space_actions"]
+        self.toggle_case_on: list = smap["toggle_case_on"]
+        self.clear_buffer_on: list = smap["clear_buffer_on"]
+        self.capitalize_after: list = smap["capitalize_after"]
+        self.append_chars: list = smap["append_chars"]
+        self.auto_append: bool = smap["auto_append"]
 
-        assumed_casing: str = get_code("assumed_casing", "normal", str)
-        self.assumed_casing = Casing.safe_from_str(assumed_casing, Casing.NORMAL)
-        self.space_on_new: bool = get_code("space_on_new", True, bool)
-        self.port: int = get_ipc("port", DEFAULT_PORT, int)
-        self.host: str = get_ipc("host", LOCAL_HOST, str)
-        self.ipc_enabled_commands: list[str] = get_ipc("ipc_enabled_commands", [], list)
+class ChunkingSection:
+    def __init__(self, smap: dict):
+        self.update(smap)
 
-        chunking_type: str = get_chunking("chunking_mode", "last", str)
-        self.chunking_type = ChunkingType.safe_from_str(chunking_type, ChunkingType.ALL)
-        self.new_chunks_only: bool = get_chunking("new_chunks_only", False, bool)
-        self.chunking_ignore: list[str] = get_chunking("chunking_ignore", ["'"], list)
+    def update(self, smap: dict):
+        self.chunking_type: ChunkingType = ChunkingType.safe_from_str(smap["chunking_type"], ChunkingType.LAST)
+        self.new_chunks_only: bool = smap["new_chunks_only"]
+        self.chunking_ignore: list = smap["chunking_ignore"]
+
+class RareSection:
+    def __init__(self, smap: dict):
+        self.update(smap)
+
+    def update(self, smap: dict):
+        self.just_set_safe_clear: list = smap["just_set_safe_clear"]
+        self.captlize_passthrough: list = smap["captlize_passthrough"]
+
+class CodeSection:
+    def __init__(self, smap: dict):
+        self.update(smap)
+
+    def update(self, smap: dict):
+        self.spacing_type: SpacingType = SpacingType.safe_from_str(smap["spacing_type"], SpacingType.NORMAL)
+        self.assumed_casing: Casing = Casing.safe_from_str(smap["assumed_casing"], Casing.NORMAL)
+        self.space_on_new: bool = smap["space_on_new"]
+
+class IpcSection:
+    def __init__(self, smap: dict):
+        self.update(smap)
+
+    def update(self, smap: dict):
+        self.port: int = smap["port"]
+        self.host: str = smap["host"]
+        self.ipc_enabled_commands: list[str] = smap["ipc_enabled_commands"]
