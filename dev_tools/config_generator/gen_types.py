@@ -55,5 +55,4 @@ class CommentList(GenValue):
 class GenCustom(GenValue):
     parse_command: str
     config_value: GenValue
-    python_type: str
     code_type: str | None = None

@@ -1,27 +1,25 @@
 from config_manager import ConfigManager
 from my_logger import log_info
 from config import Config
+from load_config_map import parse
 import os
-import tomllib
+from pathlib import Path
 
 
 def _load_toml() -> dict:
     config_manager = ConfigManager("fuzzy_chips")
     CONFIG_FILE_NAME = "config.toml"
-    path = ""
     if os.path.exists(CONFIG_FILE_NAME):
-        path = CONFIG_FILE_NAME
+        path = Path(CONFIG_FILE_NAME)
     else:
         path = config_manager.find_config_file(CONFIG_FILE_NAME)
 
-    if not os.path.exists(path):
+    empty_chips = {"chips": {}}
+    if not path.exists():
         log_info("no config found")
-        return {"chips": {}}
+        return empty_chips
 
-    with open(path, "rb") as file:
-        data = tomllib.load(file)
-    if "chips" not in data:
-        data["chips"] = {}
+    data = parse(path, empty_chips) or empty_chips
     return data
 
 

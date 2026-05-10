@@ -56,7 +56,7 @@ class CommandProcessor:
 
         try:
             handler = self._commands[command]
-            handler(args)
+            handler([args])
             return "succeeded"
         except Exception:
             return "invalid"

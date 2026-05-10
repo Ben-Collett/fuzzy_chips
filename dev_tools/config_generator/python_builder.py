@@ -131,7 +131,7 @@ def _process_field(field_data: FieldData) -> ProcessedField:
         parse_command = val.parse_command
         config_value = val.config_value
         default_val = _get_default_from_gen(config_value)
-        python_type = val.python_type
+        python_type = val.code_type
         config_value_type = _get_type_from_gen(config_value)
         return ProcessedField(key, "custom", default_val, python_type, None, None, None, parse_command, comment, config_value_type)
 
