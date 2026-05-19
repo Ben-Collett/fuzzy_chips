@@ -10,7 +10,7 @@ class TestCommandProcessor:
         assert processor._fallback is None
 
     def test_initialization_with_fallback(self):
-        fallback = lambda x: None
+        def fallback(x): return None
         processor = CommandProcessor(fallback=fallback)
         assert processor._fallback == fallback
 
@@ -29,14 +29,14 @@ class TestHasCommand:
 class TestRegister:
     def test_register_command(self):
         processor = CommandProcessor()
-        handler = lambda args: None
+        def handler(args): return None
         processor.register("test", handler)
         assert "test" in processor._commands
         assert processor._commands["test"] == handler
 
     def test_register_command_ipc_enabled(self):
         processor = CommandProcessor()
-        handler = lambda args: None
+        def handler(args): return None
         processor.register("test", handler, ipc_enabled=True)
         assert "test" in processor._commands
         assert "test" in processor.ipc_commands
@@ -100,7 +100,7 @@ class TestProcessIpc:
 
     def test_process_ipc_not_ipc_enabled(self):
         processor = CommandProcessor()
-        handler = lambda args: None
+        def handler(args): return None
         processor.register("test", handler)
         result = processor.process_ipc("test")
         assert result == "not ipc enabled"
@@ -128,7 +128,7 @@ class TestProcessIpc:
         processor.register("cmd", handler, ipc_enabled=True)
         result = processor.process_ipc("cmd hello world")
         assert result == "succeeded"
-        assert result_args[0] == "hello world"
+        assert result_args[0] == ["hello world"]
 
     def test_process_ipc_leading_whitespace(self):
         processor = CommandProcessor()

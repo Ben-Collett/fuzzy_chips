@@ -312,7 +312,8 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config: Config):
             left_part, right_part = "", ""
             if ctx.current_casing == Casing.NORMAL:
                 left_part, right_part = get_left_right_part(word)
-                skip = is_all_non_alphanumeric_str(left_part)
+                skip = is_all_non_alphanumeric_str(
+                    left_part) or get_chip_result(left_part, config) is not None
                 if not skip and handle_new_space(
                     left_part, right_part, white_space, flags, config
                 ):

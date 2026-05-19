@@ -2,6 +2,7 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Optional
 
+
 @dataclass
 class BufferEntry:
     char: str
@@ -27,13 +28,19 @@ class KeyBuffer:
     def clear(self):
         self.buffer.clear()
 
-    def set_buffer(self, items, recent=True):
+    def set_buffer(self, items: str | list[str], recent=True):
         self.clear()
         self.add_all(items, recent)
 
-    def add_all(self, items, recent=True):
+    def add_all(self, items: str | list[str], recent=True):
+        """
+        takes a string or list of strings and adds each character
+        as a item
+        example : ["a","b","cd"] will add a,b,c,d as separate items
+        """
         for item in items:
-            self.add(item, recent)
+            for ch in item:
+                self.add(ch, recent)
 
     def add_entry(self, entry):
         """Add entry to the buffer (removes oldest if full)"""
@@ -56,22 +63,23 @@ class KeyBuffer:
         Supports negative indexing (-1 = last word).
         Returns an empty list if index is out of range.
         """
-        if not self.buffer:
+
+        buffer = list(self.buffer)
+        if len(buffer) == 0:
             return []
 
-        chars = self.get()
         words: list[tuple[int, int]] = []
         i = 0
-        n = len(chars)
+        n = len(buffer)
 
         while i < n:
-            while i < n and chars[i].isspace():
+            while i < n and buffer[i].char.isspace():
                 i += 1
             if i >= n:
                 break
 
             start = i
-            while i < n and not chars[i].isspace():
+            while i < n and not buffer[i].char.isspace():
                 i += 1
             end = i - 1
 
@@ -87,7 +95,7 @@ class KeyBuffer:
             return []
 
         start, end = words[index]
-        return list(self.buffer)[start: end + 1]
+        return buffer[start: end + 1]
 
     def get_word(self, index: int) -> str:
         """
