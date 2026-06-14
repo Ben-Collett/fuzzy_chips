@@ -52,7 +52,8 @@ class TestUpperBeforeNonUnderscoreSpecial:
         ],
     )
     def test_upper_before_non_underscore_special(self, s, on_empty, expected):
-        assert _upper_before_non_underscore_special(s, on_empty=on_empty) == expected
+        assert _upper_before_non_underscore_special(
+            s, on_empty=on_empty) == expected
 
 
 class TestUpperTrailingNonUnderscoreSpecial:
@@ -67,7 +68,8 @@ class TestUpperTrailingNonUnderscoreSpecial:
         ],
     )
     def test_upper_trailing_non_underscore_special(self, s, on_empty, expected):
-        assert _upper_trailing_non_underscore_special(s, on_empty=on_empty) == expected
+        assert _upper_trailing_non_underscore_special(
+            s, on_empty=on_empty) == expected
 
 
 class TestEmptyOrUpper:
@@ -98,6 +100,20 @@ class TestDetermineCodeCasing:
             ("T", "", Casing.NORMAL),
             ("t-Th", "", Casing.NORMAL),
             ("hello", "_private", Casing.SNAKE),
+            ('hello_there("the', "", Casing.NORMAL),
+            ('hello_there(the', "", Casing.SNAKE),
+            ('hello_there(23', "", Casing.NORMAL),
+            ('hello_there(.', "", Casing.NORMAL),
+            ('helloThere("the', "", Casing.NORMAL),
+            ('helloThere(the', "", Casing.CAMEL),
+            # ('helloThere(_thing', "", Casing.CAMEL), #TODO
+            ('HelloThere(the', "", Casing.CAMEL),
+            ('Hellothere(the', "", Casing.NORMAL),
+            ('I.E.', "", Casing.NORMAL),
+            ('i.e.', "", Casing.NORMAL),
+            ('EX:', "", Casing.NORMAL),
+            ('helloThere(23', "", Casing.NORMAL),
+            ('helloThere(.', "", Casing.NORMAL),
         ],
     )
     def test_determine_code_casing(self, left, right, expected):
@@ -116,7 +132,8 @@ class TestDetermineCodeCasing:
         self, left, right, assumed_override, expected
     ):
         assert (
-            determine_code_casing(left, right, on_private_assume=assumed_override)
+            determine_code_casing(
+                left, right, on_private_assume=assumed_override)
             == expected
         )
 
@@ -129,7 +146,8 @@ class TestConvertCasing:
             ("hello world", "hello", "", "", Casing.NORMAL, ("hello world", 0, 5)),
             ("hello world", "hello", "", "", Casing.KEBAB, ("hello-world", 0, 0)),
             ("hello world", "hello", "", "", Casing.SNAKE, ("hello_world", 0, 0)),
-            ("hello world", "hello", "", "", Casing.UPPER_SNAKE, ("HELLO_WORLD", 0, 0)),
+            ("hello world", "hello", "", "",
+             Casing.UPPER_SNAKE, ("HELLO_WORLD", 0, 0)),
             ("hello world", "hello", "", "", Casing.PROPER, ("Hello world", 0, 0)),
             ("hello world", "hello", "", "", Casing.CAMEL, ("helloWorld", 0, 0)),
         ],
@@ -137,7 +155,8 @@ class TestConvertCasing:
     def test_convert_casing(
         self, to_write, word, prev_word, prev_whitespace, casing, expected
     ):
-        result = convert_casing(to_write, word, prev_word, prev_whitespace, casing)
+        result = convert_casing(
+            to_write, word, prev_word, prev_whitespace, casing)
         assert result == expected
 
     def test_convert_casing_empty_to_write(self):

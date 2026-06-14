@@ -6,6 +6,13 @@ def count_where(pred, iterable):
     return count
 
 
+def list_get_or_default(lst: list, index: int, default) -> list:
+    try:
+        return lst[index]
+    except IndexError:
+        return default
+
+
 def start_overlap_length(a: str, b: str):
     count = 0
     for ch1, ch2 in zip(a, b):

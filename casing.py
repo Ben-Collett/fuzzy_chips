@@ -1,9 +1,10 @@
+from utils import compute_upper_count, reverse_enumerate, reversed_range,  split_non_alpha
+from enum_utils import safe_enum_from_str
 from enum import Enum
 from collection_utils import no_overlap, ends_with_any, starts_with_alnum
 from collection_utils import ends_with_alnum, is_not_empty_str, starts_with_any
+from collection_utils import list_get_or_default
 from collection_utils import captlize, uncaptlize, start_overlap_length, last_char
-from enum_utils import safe_enum_from_str
-from utils import compute_upper_count,  split_non_alpha
 DASHES = {"\u002d",  # -
           "\u2010",  # hyphen
           "\u2011",  # non-breaking hyphen
@@ -73,8 +74,9 @@ def _empty_or_upper(s: str):
     return all(ch.isupper() for ch in s)
 
 
-def _non_alpha_last_word(text):
-    split = split_non_alpha(text, [])
+def _non_alpha_last_word(text, excluded: list[str] | None = None):
+    excluded = excluded or []
+    split = split_non_alpha(text, excluded)
     for v in reversed(split):
         word, is_sep = v
         if not is_sep:
@@ -89,11 +91,22 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
     does not handle kebab case
     """
 
-    # handles edgecase where variable separated by operator like hi_this= 2
+    # handles edgecase where variable separated by operator like hi_this=2
     for ch in reversed(left_part):
         if not ch.isalnum() and ch != "_":
             return Casing.NORMAL
         elif ch.isalpha():
+            break
+
+    # if this isn't here then when the user types a string
+    # they will end up using the code casing of the function there calling
+    # usually this is not what the user wants
+    # example hello_there("there should probably be normal not snake casing
+    for i, ch in reverse_enumerate(left_part):
+        if ch == "'" or ch == '"':
+            if len(left_part) > 1:
+                i += 1
+            left_part = left_part[i:]
             break
 
     # need to handle starting with _ sepratly because languages like dart
@@ -102,6 +115,7 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
 
     if left_part.startswith("_"):
         left_part = left_part[1:]
+
     is_snake = "_" in right_part or "_" in left_part
 
     if is_snake:
@@ -118,7 +132,10 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
             return Casing.UPPER_SNAKE
         return Casing.NORMAL
 
-    left_part = _non_alpha_last_word(left_part)
+    left_words = split_non_alpha(left_part, [])
+
+    left_part, _ = left_words[-1]
+
     right_part = _non_alpha_last_word(right_part)
     start_is_upper = _first_letter_is_upper(left_part)
 
@@ -133,7 +150,21 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
     if upper_count > 0:
         return Casing.CAMEL
 
+    # get's the part before the current word that way we can
+    # use it to determine if a simple word is likely cammel case.
+    # we will not assume proper casing based on this as
+    # ThisIs.common ThisIs.Rare same with ThisIs(aCommonThing) ThisIs(LessCommon)
+    # will exclude This.thing incase of natural language like I.E.
+    other_part, _ = list_get_or_default(left_words, -3, default=("", False))
+    other_upper_count = compute_upper_count(other_part)
+    if _first_letter_is_upper(other_part):
+        other_upper_count -= 1
+    if other_upper_count > 0:
+        return Casing.CAMEL
+
     if is_likely_private:
+        if other_upper_count > 0:
+            return Casing.CAMEL
         return on_private_assume
     return Casing.NORMAL
 

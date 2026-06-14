@@ -73,16 +73,16 @@ def to_utf(name: str, shift_down: bool):
 def split_non_alpha(text: str, excluded: List[str]) -> List[Tuple[str, bool]]:
     """
     Returns a list of (token, is_separator).
-    
+
     - token: the string piece
     - is_separator: True if it's a separator, False if it's a word
-    
+
     Separators are characters that are:
     - NOT alphanumeric
     - AND NOT in the excluded list
     """
     excluded_set = set(excluded)
-    
+
     tokens: List[Tuple[str, bool]] = []
     current: List[str] = []
 
@@ -100,6 +100,8 @@ def split_non_alpha(text: str, excluded: List[str]) -> List[Tuple[str, bool]]:
 
     flush_current()
     return tokens
+
+
 def alpha_numericish(ch: str):
     return ch.isalnum() or ch == "'"
 
@@ -120,7 +122,7 @@ all-other-separators, will behave like snake case
 
 
 def backspaces_to_delete_previous_word(buffer: list[str]) -> int:
-    if len(buffer)==0:
+    if len(buffer) == 0:
         return 0
 
     i = len(buffer) - 1
@@ -150,7 +152,7 @@ def backspaces_to_delete_previous_word(buffer: list[str]) -> int:
             ch = buffer[i]
             if ch.isspace() or not alpha_numericish(ch):
                 return count
-            if ch.isupper() :
-                return count + 1 #+1 to include the lower character
+            if ch.isupper():
+                return count + 1  # +1 to include the lower character
 
     return len(buffer)
