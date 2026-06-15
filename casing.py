@@ -4,7 +4,7 @@ from enum import Enum
 from collection_utils import no_overlap, ends_with_any, starts_with_alnum
 from collection_utils import ends_with_alnum, is_not_empty_str, starts_with_any
 from collection_utils import list_get_or_default
-from collection_utils import captlize, uncaptlize, start_overlap_length, last_char
+from collection_utils import captlize_first_char, uncaptlize_first_char, start_overlap_length, last_char
 DASHES = {"\u002d",  # -
           "\u2010",  # hyphen
           "\u2011",  # non-breaking hyphen
@@ -210,7 +210,7 @@ def convert_casing(to_write, word, prev_word, prev_whitespace, casing: Casing):
         case Casing.KEBAB:
             to_write = to_write.replace(" ", "-")
             if period_end:
-                to_write = captlize(to_write)
+                to_write = captlize_first_char(to_write)
 
             if should_prepend:
                 to_write = "-" + to_write
@@ -232,14 +232,14 @@ def convert_casing(to_write, word, prev_word, prev_whitespace, casing: Casing):
             if should_prepend or prev_word.endswith("_"):
                 prepended = 1
         case Casing.PROPER:
-            to_write = captlize(to_write)
+            to_write = captlize_first_char(to_write)
             # sometimes _ can denote being private
             if should_prepend or prev_word == "_":
                 prepended = 1
         case Casing.CAMEL:
-            to_write = "".join(map(captlize, to_write.split()))
+            to_write = "".join(map(captlize_first_char, to_write.split()))
             if period_end or open_end or not should_prepend:
-                to_write = uncaptlize(to_write)
+                to_write = uncaptlize_first_char(to_write)
 
             # sometimes _ can denote being private
             if should_prepend or prev_word == "_":

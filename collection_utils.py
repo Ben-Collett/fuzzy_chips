@@ -78,12 +78,19 @@ def no_overlap(iter1, iter2):
     return True
 
 
-def toggle_captlize_word(s: str):
-    if s == "":
+def toggle_captlize_word(s: str) -> str:
+    index = 0
+    length = len(s)
+    while index < length:
+        if s[index].isalpha():
+            break
+        index += 1
+    if index == length:
         return s
-    if s[0].islower():
-        return captlize(s)
-    return uncaptlize(s)
+
+    if s[index].islower():
+        return s[:index]+captlize_first_char(s[index:])
+    return s[:index]+uncaptlize_first_char(s[index:])
 
 
 def toggle_all_caps(s: str):
@@ -92,15 +99,28 @@ def toggle_all_caps(s: str):
     return s.lower()
 
 
-def captlize(s: str):
+def captlize_first_char(s: str):
     if len(s) <= 1:
         return s.upper()
 
     return s[0].upper() + s[1:]
 
 
-def uncaptlize(s: str):
+def uncaptlize_first_char(s: str):
     if len(s) <= 1:
         return s.lower()
 
     return s[0].lower() + s[1:]
+
+
+def captlize_word(s: str):
+    index = 0
+    length = len(s)
+    while index < length:
+        if s[index].isalpha():
+            break
+        index += 1
+    if index == length:
+        return s
+
+    return s[:index] + s[index].upper() + s[index+1:]

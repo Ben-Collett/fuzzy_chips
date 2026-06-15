@@ -1,7 +1,7 @@
 from modifiers import SHIFT, CTRL, ALT, WINDOWS
 from casing import Casing, convert_casing
 from spacing_type import SpacingType
-from collection_utils import count_where, captlize, is_not_empty_str
+from collection_utils import captlize_word, count_where, captlize_first_char, is_not_empty_str
 from ipc_server import IPCServer
 from utils import down_modifiers, to_utf, is_str
 from utils import backspaces_to_delete_previous_word
@@ -251,6 +251,9 @@ def handle_code_spacing(left_part, right_part, white_space, config: Config):
 
 
 def captlize_if_needed(to_write, to_write_is_str, config: Config):
+    """
+    something to consider right now hi. 12+abc would captlzie the A is that what a I want? Does it matter?
+    """
     ctx = AppContext.get_current()
     capitalize_after = config.general.capitalize_after
     captlize_passthrough = config.rare.captlize_passthrough
@@ -263,7 +266,7 @@ def captlize_if_needed(to_write, to_write_is_str, config: Config):
         and to_write_is_str
     )
     if should_capitalize:
-        return captlize(to_write)
+        return captlize_word(to_write)
     return to_write
 
 

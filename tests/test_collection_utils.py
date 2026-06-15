@@ -13,8 +13,9 @@ from collection_utils import (
     no_overlap,
     toggle_captlize_word,
     toggle_all_caps,
-    captlize,
-    uncaptlize,
+    captlize_first_char,
+    uncaptlize_first_char,
+    captlize_word,
 )
 
 
@@ -196,6 +197,14 @@ class TestToggleCaptlizeWord:
             ("hello", "Hello"),
             ("", ""),
             ("a", "A"),
+            ("124a", "124A"),
+            ("124A", "124a"),
+            ("'a", "'A"),
+            ("'A", "'a"),
+            ("(A", "(a"),
+            (".'\"hello", ".'\"Hello"),
+            ("'", "'"),
+            ("'.?", "'.?"),
         ],
     )
     def test_toggle_captlize_word(self, s, expected):
@@ -228,7 +237,7 @@ class TestCaptlize:
         ],
     )
     def test_captlize(self, s, expected):
-        assert captlize(s) == expected
+        assert captlize_first_char(s) == expected
 
 
 class TestUncaptlize:
@@ -244,4 +253,26 @@ class TestUncaptlize:
         ],
     )
     def test_uncaptlize(self, s, expected):
-        assert uncaptlize(s) == expected
+        assert uncaptlize_first_char(s) == expected
+
+
+class TestCaptlizeWord:
+    @pytest.mark.parametrize(
+        "s,expected",
+        [
+            ("hello", "Hello"),
+            ("h", "H"),
+            ("Hello", "Hello"),
+            ("HELLO", "HELLO"),
+            ("hELLO", "HELLO"),
+            ("", ""),
+            ("123", "123"),
+            ("'", "'"),
+            ("123abc", "123Abc"),
+            (".'\"hello", ".'\"Hello"),
+            ("'a", "'A"),
+            ("abc123", "Abc123"),
+        ],
+    )
+    def test_captlize_word(self, s, expected):
+        assert captlize_word(s) == expected

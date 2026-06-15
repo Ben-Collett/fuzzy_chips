@@ -1,7 +1,7 @@
 from chunking import ChunkingType
 from frozen_dict import FrozenDict
 from casing import Casing, determine_code_casing
-from collection_utils import count_where,  captlize, ends_with_alnum, is_not_empty_str
+from collection_utils import count_where,  captlize_first_char, ends_with_alnum, is_not_empty_str
 from collection_utils import toggle_all_caps, toggle_captlize_word
 from typing import Optional
 from utils import is_str, compute_upper_count,  reverse_enumerate
@@ -43,7 +43,7 @@ def _update_captlization(word, upper_count: int):
     if not is_str(word):
         return word
     if upper_count == 1:
-        word = captlize(word)
+        word = captlize_first_char(word)
     elif upper_count > 1:
         word = word.upper()
     return word
