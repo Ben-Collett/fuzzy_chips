@@ -3,6 +3,7 @@ from casing import (
     Casing,
     is_dash,
     _first_letter_is_upper,
+    _last_two_non_separators,
     _upper_before_non_underscore_special,
     _upper_trailing_non_underscore_special,
     _empty_or_upper,
@@ -38,6 +39,30 @@ class TestFirstLetterIsUpper:
     )
     def test_first_letter_is_upper(self, s, expected):
         assert _first_letter_is_upper(s) == expected
+
+
+class TestLastTwoNonSeparators:
+    @pytest.mark.parametrize(
+        "word,expected",
+        [
+            ("", ("", "")),
+            ("-", ("", "")),
+            ("_", ("_", "")),
+            ("hello", ("hello", "")),
+            ("-hello", ("hello", "")),
+            ("hello-", ("hello", "")),
+            ("hello-there", ("there", "hello")),
+            ("-hello-there-", ("there", "hello")),
+            ("hello-there-world", ("world", "there")),
+            ("hello.there", ("there", "hello")),
+            ("hello.there.guy", ("guy", "there")),
+            ("hello_there", ("hello_there", "")),
+            ("hello_there-world", ("world", "hello_there")),
+            ("hello-there_world", ("there_world", "hello")),
+        ],
+    )
+    def test_last_two_non_separators(self, word, expected):
+        assert _last_two_non_separators(word) == expected
 
 
 class TestUpperBeforeNonUnderscoreSpecial:
@@ -94,7 +119,8 @@ class TestDetermineCodeCasing:
         [
             ("hello", "", Casing.NORMAL),
             ("hello_world", "", Casing.SNAKE),
-            ("HELLO_WORLD", "", Casing.UPPER_SNAKE),
+            ("HELLO_WORLD", "_there", Casing.SNAKE),
+            ("HELLO_WORLD", "_THERE", Casing.UPPER_SNAKE),
             ("_private", "", Casing.SNAKE),
             ("hi=there", "", Casing.NORMAL),
             ("T", "", Casing.NORMAL),
@@ -106,7 +132,10 @@ class TestDetermineCodeCasing:
             ('hello_there(.', "", Casing.NORMAL),
             ('helloThere("the', "", Casing.NORMAL),
             ('helloThere(the', "", Casing.CAMEL),
-            # ('helloThere(_thing', "", Casing.CAMEL), #TODO
+            ('helloThere(_thing', "", Casing.CAMEL),
+            ('helloThere(The', "", Casing.PROPER),
+            ('HelloThere', "", Casing.PROPER),
+            ('_HelloThere', "", Casing.PROPER),
             ('HelloThere(the', "", Casing.CAMEL),
             ('Hellothere(the', "", Casing.NORMAL),
             ('I.E.', "", Casing.NORMAL),

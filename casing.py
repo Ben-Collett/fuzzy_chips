@@ -109,14 +109,15 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
             left_part = left_part[i:]
             break
 
+    left_part, other_part = _last_two_non_separators(left_part)
     # need to handle starting with _ sepratly because languages like dart
     # uses _ at the start of camel and propercasing
     is_likely_private = left_part.startswith("_")
 
-    if left_part.startswith("_"):
-        left_part = left_part[1:]
+    left_part = left_part.removeprefix("_")
+    other_part = other_part.removeprefix("_")
 
-    is_snake = "_" in right_part or "_" in left_part
+    is_snake = "_" in right_part or "_" in left_part or "_" in other_part
 
     if is_snake:
         left_upper = _upper_trailing_non_underscore_special(
@@ -131,10 +132,6 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
         if is_likely_private and (left_part.isupper() or right_part.isupper()):
             return Casing.UPPER_SNAKE
         return Casing.NORMAL
-
-    left_words = split_non_alpha(left_part, [])
-
-    left_part, _ = left_words[-1]
 
     right_part = _non_alpha_last_word(right_part)
     start_is_upper = _first_letter_is_upper(left_part)
@@ -155,16 +152,16 @@ def determine_code_casing(left_part: str, right_part: str, on_private_assume=Cas
     # we will not assume proper casing based on this as
     # ThisIs.common ThisIs.Rare same with ThisIs(aCommonThing) ThisIs(LessCommon)
     # will exclude This.thing incase of natural language like I.E.
-    other_part, _ = list_get_or_default(left_words, -3, default=("", False))
     other_upper_count = compute_upper_count(other_part)
     if _first_letter_is_upper(other_part):
         other_upper_count -= 1
+
     if other_upper_count > 0:
+        if start_is_upper:
+            return Casing.PROPER
         return Casing.CAMEL
 
     if is_likely_private:
-        if other_upper_count > 0:
-            return Casing.CAMEL
         return on_private_assume
     return Casing.NORMAL
 
@@ -246,3 +243,26 @@ def convert_casing(to_write, word, prev_word, prev_whitespace, casing: Casing):
                 prepended = 1
 
     return to_write, prepended, overlapping_start
+
+
+def _last_two_non_separators(word: str) -> tuple[str, str]:
+    """
+    used in determine code casing to split the left part
+    uses split_non_alpha excluding _ to split the word
+    into it's sections and returns the last two that are not 
+    seperatrers if there are not two then an empty
+    string is returned for that value.
+    """
+    w1 = None
+    w2 = ""
+    words = split_non_alpha(word, ["_"])
+    for sec in reversed(words):
+        val, is_sep = sec
+        if not is_sep:
+            if w1 is None:
+                w1 = val
+            else:
+                w2 = val
+                break
+    w1 = w1 or ""
+    return w1, w2

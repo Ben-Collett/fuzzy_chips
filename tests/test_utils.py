@@ -24,19 +24,28 @@ class TestIsStr:
 
     def test_returns_false_for_non_string(self):
         assert not is_str(["hi", "there"])
+
+
 class TestSplitNonAlpha:
 
+    tests = [("", [], []),
+             ("", [","], []),
+             ("hi", [], [("hi", False)]),
+             ("hi_there,.", ["_"], [
+              ("hi_there", False), (",", True), (".", True)]),
+             ("hi-there/dog", [], [("hi", False), ("-", True),
+                                   ("there", False), ("/", True), ("dog", False)]),
+             ("hi-there/dog", ["/"], [("hi", False),
+                                      ("-", True), ("there/dog", False)]),
+             ("hi--there/dog", ["/"], [("hi", False),
+                                       ("-", True), ("-", True), ("there/dog", False)]),
+             ("hi1-there/dog",
+             ["-", "/"], [("hi1-there/dog", False)]),
+             ]
 
-    @pytest.mark.parametrize("text,excluded,expected", [("",[],[]),
-                                                      ("",[","],[]),
-                                                      ("hi",[],[("hi",False)]),
-                                                      ("hi-there/dog",[],[("hi",False),("-",True),("there",False),("/",True),("dog",False)]),
-                                                      ("hi-there/dog",["/"],[("hi", False),("-", True),("there/dog", False)]),
-                                                      ("hi--there/dog",["/"],[("hi",False),("-",True),("-",True),("there/dog",False)]),
-                                                      ("hi1-there/dog",["-","/"],[("hi1-there/dog",False)]),
-                                                        ])
-    def test_split_non_alpha(self,text,excluded,expected):
-        assert split_non_alpha(text,excluded)==expected
+    @pytest.mark.parametrize("text,excluded,expected", tests)
+    def test_split_non_alpha(self, text, excluded, expected):
+        assert split_non_alpha(text, excluded) == expected
 
 
 class TestIsAllNonAlphanumericStr:
@@ -137,7 +146,7 @@ class TestBackspacesToDeletePreviousWord:
             ("hello_29", 2),
             ("hello_hat_thing", 5),
             ("hello_hat_thing(", 6),
-             ("hello_hat_thing( ", 7),
+            ("hello_hat_thing( ", 7),
             ("hello_hat_thing(person_that", 4),
             ("hello_hat_thing(person", 6),
         ],
