@@ -295,7 +295,7 @@ def _expand_last_chunk_and_join(parts: list[tuple[str, bool]], config: Config) -
     return "".join(reversed(out))
 
 
-def expand_chunking(left_part: str, new_chars: list[bool], config: Config):
+def expand_chunking(left_part: str, new_chars: list[bool], config: Config) -> str:
     old_part = ""
     if config.chunking.new_chunks_only:
         old_part, left_part = split_new_part(left_part, new_chars)

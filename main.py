@@ -1,9 +1,10 @@
+from keyboard._keyboard_event import KeyboardEvent
 from modifiers import SHIFT, CTRL, ALT, WINDOWS
 from casing import Casing, convert_casing
 from spacing_type import SpacingType
-from collection_utils import captlize_word, count_where, captlize_first_char, is_not_empty_str
+from collection_utils import captlize_word, count_where, captlize_first_char, decrement_if_greater_than_zero, is_not_empty_str, decrement_if
 from ipc_server import IPCServer
-from utils import down_modifiers, to_utf, is_str
+from utils import down_modifiers, safe_len, to_utf, is_str
 from utils import backspaces_to_delete_previous_word
 from buffer import KeyBuffer
 from config import Config
@@ -13,6 +14,7 @@ from expansion_utils import expand_new
 from utils import is_all_non_alphanumeric_str
 import keyboard
 import signal
+from utils import strict_matches_hotkeys
 
 from main_context import AppContext
 from commands import clear_buffer, activate_normal_casing_mode, terminate
@@ -59,8 +61,7 @@ def backspace(n_times):
 
 def decrement_expected_counter():
     ctx = AppContext.get_current()
-    if ctx.expected_counter > 0:
-        ctx.expected_counter -= 1
+    ctx.expected_counter = decrement_if_greater_than_zero(ctx.expected_counter)
 
 
 def determine_amount_to_backspace_shift_backspace(buffer: list[str]) -> int:
@@ -114,6 +115,7 @@ def handle_auto_append(event, config: Config):
         leading_whitespace = ctx._buffer.get_trailing_white_space()
         if len(leading_whitespace) > 0:
             ctx._buffer.add(name)
+            # +1 to delete the punctuation mark
             backspace_count = len(leading_whitespace) + 1
             to_write = name + leading_whitespace
             backspace_then_write(backspace_count, to_write,
@@ -182,14 +184,22 @@ def add_utf_and_update_expected(utf: str | None):
         decrement_expected_counter()
 
 
-def handle_space_punctuation(word, append_chars, white_space, prev_whitespace):
+def handle_expand_punctuation(word, append_chars, white_space, prev_whitespace):
+    """
+    word = the punctuation mark
+    append_chars the list of characters that should 
+    be appended as punctatoin
+    white_space = space after the punctuation mark
+    prev_whitespace = space before the punctuation mark
+    """
     PUNCTUATION_PLUS_SPACE = 2
     ctx = AppContext.get_current()
     at_start_of_buffer = len(ctx._buffer) <= PUNCTUATION_PLUS_SPACE
-    space_length = len(white_space)
-    if word in append_chars and space_length == 1 and not at_start_of_buffer:
+    prev_space_length = len(prev_whitespace)
+
+    if word in append_chars and prev_space_length > 0 and not at_start_of_buffer:
         to_write = word + prev_whitespace
-        backspace_count = len(prev_whitespace) + len(word) + 1
+        backspace_count = prev_space_length + len(word) + len(white_space)
         backspace_then_write(backspace_count, to_write, update_expected=True)
         return True
     return False
@@ -200,6 +210,7 @@ def handle_new_space(
     right_part: str,
     white_space: str,
     new_flags: list[bool],
+    trigger_utf: str | None,
     config: Config,
 ) -> bool:
     if config.code.spacing_type != SpacingType.NEW:
@@ -211,7 +222,7 @@ def handle_new_space(
     if back_count == 0 and to_write is None:
         return False
 
-    backspace_then_write(back_count + 1, to_write)
+    backspace_then_write(back_count + safe_len(trigger_utf), to_write)
 
     return True
 
@@ -229,7 +240,7 @@ def get_left_right_part(word: str) -> tuple[str, str]:
     return left_part, right_part
 
 
-def handle_code_spacing(left_part, right_part, white_space, config: Config):
+def handle_code_spacing(left_part: str, right_part: str, white_space: str, config: Config) -> bool:
 
     if config.code.spacing_type != SpacingType.CODE:
         return False
@@ -270,44 +281,51 @@ def captlize_if_needed(to_write, to_write_is_str, config: Config):
     return to_write
 
 
-def escape_to_normal_casing(white_space):
+def escape_to_normal_casing(white_space: str, event_utf: str | None):
+    event_utf = event_utf or ""
     ctx = AppContext.get_current()
-    if ctx.current_casing.is_not_normal_casing and white_space == "  ":
+    white_space_length = len(white_space)
+    white_space_length = decrement_if(white_space_length, event_utf.isspace())
+
+    if ctx.current_casing.is_not_normal_casing and white_space_length > 0:
         activate_normal_casing_mode([])
-        backspace(1)
+        if len(event_utf) == 1:
+            backspace(1)
         return True
     return False
 
 
-def should_do_space_action(shift_down: bool, invert: bool) -> bool:
-    return (shift_down and invert) or (not shift_down and not invert)
-
-
-def handle_space(event: keyboard.KeyboardEvent, shift_down, config: Config):
-    ctx = AppContext.get_current()
-    append_chars = config.general.append_chars
-    is_space = event.name == "space"
+def should_expand(event: keyboard.KeyboardEvent, user_typing: bool, config: Config):
     pressed_key = event.event_type == keyboard.KEY_DOWN
-    typing = ctx.expected_counter > 0
+    return user_typing and pressed_key and strict_matches_hotkeys(config.general.expand_on, event)
 
-    if is_space and pressed_key and not typing:
-        ctx._buffer.add(" ")
+
+def handle_expand(event: keyboard.KeyboardEvent,  config: Config):
+    ctx = AppContext.get_current()
+    buffer = ctx._buffer
+    append_chars = config.general.append_chars
+    user_typing = ctx.expected_counter == 0
+    event_name = event.name or ""
+    event_name_utf = to_utf(event_name)
+
+    if should_expand(event, user_typing, config):
+        buffer.add_if_not_none(event_name_utf)
         white_space = ctx._buffer.get_trailing_white_space()
-        if escape_to_normal_casing(white_space):
+
+        # TODO: figure out how to handle this
+        if escape_to_normal_casing(white_space, event_name_utf):
             return True
 
-        if not should_do_space_action(shift_down, config.general.invert_space_actions):
-            return True
         prev_whitespace = ctx._buffer.get_white_space_before_prev_word()
         word, flags = ctx._buffer.get_word_and_new_state(-1)
         prev_word = ctx._buffer.get_word(-2)
 
-        if handle_space_punctuation(
+        if handle_expand_punctuation(
             word, append_chars, white_space, prev_whitespace
         ):
             return True
 
-        process_chip = len(white_space) == 1
+        process_chip = len(white_space) <= 1
 
         to_write: str | list[str] | None = None
         skip = False
@@ -318,7 +336,7 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config: Config):
                 skip = is_all_non_alphanumeric_str(
                     left_part) or get_chip_result(left_part, config) is not None
                 if not skip and handle_new_space(
-                    left_part, right_part, white_space, flags, config
+                    left_part, right_part, white_space, flags, event_name_utf, config
                 ):
                     return True
 
@@ -328,7 +346,7 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config: Config):
                     return True
 
             to_write = get_chip_result(word, config)
-            if not skip and to_write == word or to_write is None:
+            if left_part != "" and (not skip and to_write == word or to_write is None):
                 to_write = expand_chunking(left_part, flags, config)
 
         if to_write is None:
@@ -347,9 +365,14 @@ def handle_space(event: keyboard.KeyboardEvent, shift_down, config: Config):
 
         if is_not_empty_str(to_write) and (to_write != word or prepended != 0):
             to_write = to_write[overlapping_start:]
-            to_backspace_count = len(word) + 1 - overlapping_start + prepended
+            to_backspace_count = len(
+                word) + safe_len(event_name_utf) - overlapping_start + prepended
             if to_write_is_str:
-                to_write += " "
+                utf = event_name_utf or ""
+                if utf.isspace():
+                    to_write += utf
+                else:
+                    to_write += " "
             backspace_then_write(to_backspace_count,
                                  to_write, update_expected=True)
         return True
@@ -378,7 +401,7 @@ def _process_event(event: keyboard.KeyboardEvent, config: Config):
 
     # ================EVERY EVENT BELOW THIS POINT IS GUARNEETD TO BE KEY DOWN=============
 
-    if handle_space(event, shift_down, config):
+    if handle_expand(event,  config):
         return
 
     name = event.name
@@ -397,7 +420,7 @@ def _process_event(event: keyboard.KeyboardEvent, config: Config):
         decrement_expected_counter()
         return
 
-    utf: str | None = to_utf(name, shift_down)
+    utf: str | None = to_utf(name)
     add_utf_and_update_expected(utf)
 
 

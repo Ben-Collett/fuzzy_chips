@@ -1,4 +1,5 @@
 import pytest
+from keyboard._keyboard_event import KeyboardEvent, KEY_DOWN
 from utils import (
     compute_upper_count,
     is_str,
@@ -7,6 +8,8 @@ from utils import (
     alpha_numericish,
     split_non_alpha,
     backspaces_to_delete_previous_word,
+    strict_matches_hotkey,
+    strict_matches_hotkeys,
 )
 
 
@@ -163,3 +166,56 @@ class TestBackspacesToDeletePreviousWord:
     )
     def test_handles_other_separators(self, buffer, expected):
         assert backspaces_to_delete_previous_word(list(buffer)) == expected
+
+
+def _event(name, event_type=KEY_DOWN, modifiers=None):
+    return KeyboardEvent(event_type, 0, name=name, modifiers=modifiers or [])
+
+
+class TestMatchesHotkey:
+    @pytest.mark.parametrize(
+        "hotkey,event_name,event_mods,expected",
+        [
+            ("space", "space", [], True),
+            ("space", "enter", [], False),
+            ("ctrl+space", "space", ["ctrl"], True),
+            ("space", "space", ["shift"], False),
+            ("ctrl+space", "space", ["shift"], False),
+            ("ctrl+space", "space", ["ctrl", "shift"], False),
+            ("shift+enter", "enter", ["shift"], True),
+            ("shift+enter", "enter", [], False),
+            ("ctrl+alt+delete", "delete", ["ctrl", "alt"], True),
+            ("ctrl+alt+delete", "delete", ["ctrl"], False),
+            ("menu", "menu", [], True),
+            ("menu", "space", [], False),
+            ("shift+a", "a", ["shift"], True),
+            ("shift+a", "a", [], False),
+            ("ctrl+shift+esc", "esc", ["ctrl", "shift"], True),
+            ("ctrl+shift+esc", "esc", ["ctrl"], False),
+        ],
+    )
+    def test_matches_hotkey(self, hotkey, event_name, event_mods, expected):
+        assert strict_matches_hotkey(hotkey, _event(
+            event_name, modifiers=event_mods)) == expected
+
+
+class TestMatchesHotkeys:
+    @pytest.mark.parametrize(
+        "hotkeys,event_name,event_mods,expected",
+        [
+            (["space", "enter"], "space", [], True),
+            (["space", "enter"], "enter", [], True),
+            (["space", "enter"], "tab", [], False),
+            (["ctrl+space", "shift+space"], "space", ["ctrl"], True),
+            (["ctrl+space", "shift+space"], "space", ["shift"], True),
+            (["ctrl+space", "shift+space"], "space", ["alt"], False),
+            (["ctrl+space", "shift+space"], "space", [], False),
+            (["ctrl+c", "ctrl+v"], "c", ["ctrl"], True),
+            (["ctrl+c", "ctrl+v"], "v", ["ctrl"], True),
+            (["ctrl+c", "ctrl+v"], "c", [], False),
+            ([], "space", [], False),
+        ],
+    )
+    def test_matches_hotkeys(self, hotkeys, event_name, event_mods, expected):
+        assert strict_matches_hotkeys(hotkeys, _event(
+            event_name, modifiers=event_mods)) == expected

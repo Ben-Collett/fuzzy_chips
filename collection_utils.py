@@ -30,6 +30,18 @@ def is_empty_str(s: str):
     return s == ""
 
 
+def decrement_if_greater_than_zero(val: int):
+    if val > 0:
+        return val-1
+    return val
+
+
+def decrement_if(val: int, cond: bool):
+    if cond:
+        val -= 1
+    return val
+
+
 def is_not_empty_str(s):
     return s != ""
 

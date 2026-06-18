@@ -33,26 +33,34 @@ def make_builder() -> Builder:
 
     # [general] section
     builder.new_line().add_section("general")
+    builder.comment(
+        " expand_on let's you define what hotkeys chips will expand on.")
+    builder.comment(" by default it will expand on space")
+    builder.comment(
+        " The hotkeys have to match what is in the list exactly to trigger so shift+space will not trigger an expansion if only space is in the list.")
+    builder.comment(
+        " As such with the default behavior I would recommend using space and enter to expand the expression and shift+space and shift+enter when you don't ")
+    builder.comment(" all hotkeys should consiste of only one non modifier character and any combination of modifiers separated by space for example windows+alt+ctrl+shift+space")
+    builder.comment(" want to expand.")
+    builder.comment(
+        " The hotkey trigger should not be keys that are used for other things like clearing the buffer that will cause problems")
+    builder.comment(
+        " While there is not anything stopping it you really shouldn't set the hotkey to a printable non-whitespace character like \"a\" or \"8\"")
+    builder.comment("")
+    builder.comment(
+        " LINUX WARNING: because of how linux handles keyboards if you want to use shift in a hot key the chip may not expand until you release")
+    builder.comment(" the shift key. And if you press shift while the text is being typed it can cause problems. I may be able to solve this in the future adding a mode that grabs exclusive access to the keyboard.")
 
     # invert_space_actions comments and field
+    builder.add_list("expand_on", [GenStr("space")], GenStr)
     builder.comment(
-        " if false when you hit space it will expand chips and append punctations depending on your configuration and if you hit shift+space it will not,")
+        ' expand_on = ["space", "enter"] # expand on enter as well as space, can be annoying for clis and code')
     builder.comment(
-        " invert_space_actions inverts this behavior so shift+space will do the expansions/appending and regular space will not")
+        ' expand_on = ["shift+space", "shift+enter"] # you can invert the typical behavior of using shift to not expand to make it expand and regular entering not, this can be less difficult for some users, though thoertically slower')
     builder.comment(
-        " this can theoritocally be easier for beginners as you have to worry about the internal buffers less, but is also theortically the slower approach")
-    builder.comment(" though still faster then regular typing(theortically).")
-    builder.new_line()
+        ' expand_on = ["space"] # if you want to only expand on the space key')
     builder.comment(
-        " LINUX WARNING: because of how Linux handles typing this gets handled weird on linux,")
-    builder.comment(
-        " if you use this expression then it will not expand until you release the shift key, and you need to make sure to not hit space")
-    builder.comment(
-        " again until after you release shift or you might get a space in the middle of the word or a second space before the word.")
-    builder.comment(
-        " unless the chip is the whole word and is typed correctly, that case would work fine but kind of defeats the purpose of fuzzy chips.")
-    builder.comment(" this problem only occurs on linux and may be solvable but I will have to work out how modify the keyboard moulde to allow grabbing exclusive access to every keyboard in the keyboard module.")
-    builder.add_bool("invert_space_actions", False)
+        ' expand_on = ["menu"] # you could also do a dedicated expansion key like using the menu key if your keyboard has one though the menu key may be used by some programs so you should probably pick a different one')
     builder.new_line()
 
     # toggle_case_on

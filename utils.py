@@ -1,8 +1,32 @@
 from keyboard import KeyboardEvent, KEY_DOWN
+from keyboard._canonical_names import normalize_name
 from modifiers import SHIFT, CTRL, ALT, WINDOWS
 from functools import lru_cache
 from my_logger import log_info
-from typing import List, Tuple
+from typing import List, Sized, Tuple
+
+
+def strict_matches_hotkeys(hotkeys: list[str], key_event: KeyboardEvent) -> bool:
+    """
+    matches if key_event with it's modifiers execatly matches
+    the modifiers and key in hotkeys
+    """
+    for hotkey in hotkeys:
+        if strict_matches_hotkey(hotkey, key_event):
+            return True
+    return False
+
+
+def strict_matches_hotkey(hotkey: str, key_event: KeyboardEvent) -> bool:
+    parts = hotkey.split("+")
+    main_key = normalize_name(parts[-1])
+    required_modifiers = {normalize_name(m) for m in parts[:-1]}
+
+    if key_event.name != main_key:
+        return False
+
+    actual_mods = down_modifiers(key_event)
+    return required_modifiers == actual_mods
 
 
 def down_modifiers(event: KeyboardEvent):
@@ -56,12 +80,15 @@ def is_all_non_alphanumeric_str(s: str):
     return not any(ch.isalnum() for ch in s)
 
 
-def to_utf(name: str, shift_down: bool):
+def safe_len(itr: Sized | None):
+    if itr is None:
+        return 0
+    return len(itr)
+
+
+def to_utf(name: str):
     if len(name) == 1:
-        if shift_down:
-            return name.upper()
-        else:
-            return name
+        return name
     elif name == "space":
         return " "
     elif name == "tab":

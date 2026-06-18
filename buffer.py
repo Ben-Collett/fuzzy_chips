@@ -50,6 +50,11 @@ class KeyBuffer:
         """Add item to the buffer (removes oldest if full)"""
         self.add_entry(BufferEntry(item, recent))
 
+    def add_if_not_none(self, item, recent=True):
+        """Add item to the buffer if not none(removes oldest if full)"""
+        if item is not None:
+            self.add(item, recent)
+
     def get(self):
         """Get the current buffer as a list"""
         return [entry.char for entry in self.buffer]

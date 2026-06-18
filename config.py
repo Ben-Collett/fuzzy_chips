@@ -107,7 +107,7 @@ def _merge_expected(config_map: dict, expected_map: dict, ignored_sections=set()
     return result
 
 def _get_expected_map():
-    return {"general": {"invert_space_actions": _ExpectedField(False, bool), "toggle_case_on": _ExpectedList(["shift"]), "clear_buffer_on": _ExpectedList(["windows_down", "ctrl_down", "alt_down"]), "capitalize_after": _ExpectedList([".", "!", "?"]), "append_chars": _ExpectedList([".", "!", "?", ",", ";", ")", "]", "}"]), "auto_append": _ExpectedField(False, bool)}, "chunking": {"chunking_type": _ExpectedField("last", str), "new_chunks_only": _ExpectedField(False, bool), "chunking_ignore": _ExpectedList(["'", "_"])}, "rare": {"just_set_safe_clear": _ExpectedList(["up", "down"]), "captlize_passthrough": _ExpectedList(["\"", "'", "`"])}, "code": {"spacing_type": _ExpectedField("normal", str), "assumed_casing": _ExpectedField("normal", str), "space_on_new": _ExpectedField(True, bool)}, "ipc": {"port": _ExpectedField(8765, int), "host": _ExpectedField("127.0.0.1", str), "ipc_enabled_commands": _ExpectedList([], str)}}
+    return {"general": {"expand_on": _ExpectedList(["space"], str), "toggle_case_on": _ExpectedList(["shift"]), "clear_buffer_on": _ExpectedList(["windows_down", "ctrl_down", "alt_down"]), "capitalize_after": _ExpectedList([".", "!", "?"]), "append_chars": _ExpectedList([".", "!", "?", ",", ";", ")", "]", "}"]), "auto_append": _ExpectedField(False, bool)}, "chunking": {"chunking_type": _ExpectedField("last", str), "new_chunks_only": _ExpectedField(False, bool), "chunking_ignore": _ExpectedList(["'", "_"])}, "rare": {"just_set_safe_clear": _ExpectedList(["up", "down"]), "captlize_passthrough": _ExpectedList(["\"", "'", "`"])}, "code": {"spacing_type": _ExpectedField("normal", str), "assumed_casing": _ExpectedField("normal", str), "space_on_new": _ExpectedField(True, bool)}, "ipc": {"port": _ExpectedField(8765, int), "host": _ExpectedField("127.0.0.1", str), "ipc_enabled_commands": _ExpectedList([], str)}}
 
 class Config:
     def __init__(self, config_map: dict | None = None):
@@ -143,7 +143,7 @@ class GeneralSection:
         self.update(smap)
 
     def update(self, smap: dict):
-        self.invert_space_actions: bool = smap["invert_space_actions"]
+        self.expand_on: list[str] = smap["expand_on"]
         self.toggle_case_on: list = smap["toggle_case_on"]
         self.clear_buffer_on: list = smap["clear_buffer_on"]
         self.capitalize_after: list = smap["capitalize_after"]
