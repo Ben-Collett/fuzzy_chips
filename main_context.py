@@ -18,12 +18,13 @@ class AppContext:
         self.stop_event: threading.Event = threading.Event()
         self.current_casing: Casing = Casing.NORMAL
         self.expected_counter: int = 0
-        self._buffer: KeyBuffer = KeyBuffer(100)
-        self._right_arrow_buffer: KeyBuffer = KeyBuffer(100)
+        self._buffer: KeyBuffer = KeyBuffer()
+        self._right_arrow_buffer: KeyBuffer = KeyBuffer()
         self.just_set: threading.Event = threading.Event()
         self.prev_real_event: KeyboardEvent | None = None
         self.command_processor: CommandProcessor = None  # type: ignore
         self.ipc_enabled: list = []
+
         self.config: Config = None  # type: ignore
 
     @classmethod
@@ -32,11 +33,16 @@ class AppContext:
             raise RuntimeError("AppContext not initialized")
         return cls._current
 
+    def resize_buffers(self, size: int):
+        self._buffer.update_capacity(size)
+        self._right_arrow_buffer.update_capacity(size)
+
     @classmethod
     def initialize(cls) -> "AppContext":
         ctx = cls()
         cls._current = ctx
         ctx.config = create_config()
+        ctx.resize_buffers(ctx.config.general.buffer_size)
         ctx.command_processor = cls._make_processor(ctx)
         cls._update_ipc_enabled(ctx)
         return ctx
@@ -45,7 +51,7 @@ class AppContext:
     def _make_processor(ctx: "AppContext") -> CommandProcessor:
         from commands import make_processor
 
-        command_processor = make_processor(ctx.config)
+        command_processor = make_processor(ctx)
         return command_processor
 
     @staticmethod

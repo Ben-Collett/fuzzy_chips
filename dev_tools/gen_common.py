@@ -106,6 +106,15 @@ def make_builder() -> Builder:
     builder.add_list("append_chars", [GenStr("."), GenStr("!"), GenStr(
         "?"), GenStr(","), GenStr(";"), GenStr(")"), GenStr("]"), GenStr("}")])
     builder.add_bool("auto_append", False)
+    builder.new_line()
+    builder.comment(
+        " the maximum capacity for the internal buffer in fuzzy chips")
+    builder.comment(" defaults to 500 or that is to say up to the last 500")
+    builder.comment(
+        " key events are stored if you set it to 0 or less then the buffer will have unlimited capacity")
+    builder.comment(
+        " but if you do that and never clear the buffer it is a memory leak")
+    builder.add_int("buffer_size", 500)
 
     # [chunking] section
     builder.new_line().add_section("chunking")

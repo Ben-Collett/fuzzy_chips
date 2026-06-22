@@ -9,10 +9,31 @@ class BufferEntry:
     recent: bool
 
 
+def _normalize_capacity(capacity: int) -> int | None:
+    if capacity <= 0:
+        return None
+    return capacity
+
+
 class KeyBuffer:
-    def __init__(self, capacity: int):
-        self.capacity = capacity
-        self.buffer: deque[BufferEntry] = deque(maxlen=capacity)
+    def __init__(self, capacity: int = 0):
+        """
+        if capacity is zero or less then it is infinite.
+        """
+        self.capacity = _normalize_capacity(capacity)
+        self.buffer: deque[BufferEntry] = deque(maxlen=self.capacity)
+
+    def update_capacity(self, capacity: int) -> None:
+
+        normalized = _normalize_capacity(capacity)
+        if normalized == self.capacity:
+            return
+
+        self.capacity = normalized
+        new_buffer = deque(maxlen=self.capacity)
+        while self.is_not_empty():
+            new_buffer.append(self.buffer.popleft())
+        self.buffer = new_buffer
 
     def mark_recent_as_old(self):
         for i, entry in enumerate(self.buffer):
@@ -219,6 +240,9 @@ class KeyBuffer:
 
     def is_empty(self):
         return len(self.buffer) == 0
+
+    def is_not_empty(self):
+        return not self.is_empty()
 
     def __len__(self):
         return len(self.buffer)

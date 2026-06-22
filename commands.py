@@ -2,7 +2,7 @@ import os
 import sys
 
 from command_processor import CommandProcessor
-from config import Config
+from main_context import AppContext
 from casing import Casing
 from my_logger import log_info
 from typing import Callable
@@ -83,15 +83,16 @@ def activate_camel_mode(_: list[str]):
     activate_casing(Casing.CAMEL)
 
 
-def cmd_reload(config: Config,  _):
+def cmd_reload(ctx: AppContext,  _):
     log_info("reloading")
-    reload_config(config)
+    reload_config(ctx.config)
+    ctx.resize_buffers(ctx.config.general.buffer_size)
 
 
-def make_processor(config: Config):
+def make_processor(ctx: AppContext):
     command_processor = CommandProcessor()
     command_processor.register(
-        "reload_config", lambda _: cmd_reload(config,  _))
+        "reload_config", lambda _: cmd_reload(ctx,  _))
 
     command_processor.register("restart", restart)
     command_processor.register("quit", terminate)
