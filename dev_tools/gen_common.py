@@ -16,7 +16,9 @@ def make_builder() -> Builder:
         "from spacing_type import SpacingType",
         "from casing import Casing",
         "from chunking import ChunkingType",
-        "from config_support import load_chips"
+        "from config_support import load_chips",
+        "from fuzzy_events import parse_on_press, parse_on_toggle, parse_while_down, parse_on_mouse_button_down",
+
     ]
     # Initialize builder with TOML formatting settings matching the example
     builder = Builder(
@@ -33,63 +35,11 @@ def make_builder() -> Builder:
 
     # [general] section
     builder.new_line().add_section("general")
-    builder.comment(
-        " expand_on let's you define what hotkeys chips will expand on.")
-    builder.comment(" by default it will expand on space")
-    builder.comment(
-        " The hotkeys have to match what is in the list exactly to trigger so shift+space will not trigger an expansion if only space is in the list.")
-    builder.comment(
-        " As such with the default behavior I would recommend using space and enter to expand the expression and shift+space and shift+enter when you don't ")
-    builder.comment(" all hotkeys should consiste of only one non modifier character and any combination of modifiers separated by space for example windows+alt+ctrl+shift+space")
-    builder.comment(" want to expand.")
-    builder.comment(
-        " The hotkey trigger should not be keys that are used for other things like clearing the buffer that will cause problems")
-    builder.comment(
-        " While there is not anything stopping it you really shouldn't set the hotkey to a printable non-whitespace character like \"a\" or \"8\"")
-    builder.comment("")
-    builder.comment(
-        " LINUX WARNING: because of how linux handles keyboards if you want to use shift in a hot key the chip may not expand until you release")
-    builder.comment(" the shift key. And if you press shift while the text is being typed it can cause problems. I may be able to solve this in the future adding a mode that grabs exclusive access to the keyboard.")
-
-    # invert_space_actions comments and field
-    builder.add_list("expand_on", [GenStr("space")], GenStr)
-    builder.comment(
-        ' expand_on = ["space", "enter"] # expand on enter as well as space, can be annoying for clis and code')
-    builder.comment(
-        ' expand_on = ["shift+space", "shift+enter"] # you can invert the typical behavior of using shift to not expand to make it expand and regular entering not, this can be less difficult for some users, though thoertically slower')
-    builder.comment(
-        ' expand_on = ["space"] # if you want to only expand on the space key')
-    builder.comment(
-        ' expand_on = ["menu"] # you could also do a dedicated expansion key like using the menu key if your keyboard has one though the menu key may be used by some programs so you should probably pick a different one')
-    builder.new_line()
-
-    # toggle_case_on
-    builder.comment(
-        " will toggle the case of the previous or current word when you press and release shift without hitting any characters in between.")
-    builder.add_list("toggle_case_on", [GenStr("shift")])
-    builder.new_line()
-
-    # clear_buffer_on comments and field
-    builder.comment(
-        " clear_buffer_on: clears the internal buffer of fuzzy chips when you press the windows key")
-    builder.comment(" left,right, up,down are all arrow keys and windows_down test if the windows/meta/gui key is down \"alt_down\", \"ctrl_down\" are also options do the same thing for their respective modifier,")
-    builder.comment(
-        " be mindful of however you keyremapper handles keyoverloading if you use one")
-    builder.comment(
-        " for example I use keyd and if I press right shift it will hold down alt if I release it without typing anything else it will type ?")
-    builder.comment(
-        " that means the buffer gets cleared and it would mess with append_chars if I had alt_down in my config to clear the buffer")
-    builder.comment(
-        " Also keep in mind using clear_on_buffer will interfere with toggle_case_on if you put the same key in both")
-    builder.add_list("clear_buffer_on", [GenStr(
-        "windows_down"), GenStr("ctrl_down"), GenStr("alt_down")])
-    builder.new_line()
-
     # capitalize_after
     builder.comment(
         " if the previous word ends with one of these characters then the current word will be capitalized once you hit space")
     builder.comment(" set to an empty list to avoid any auto captlizing")
-    builder.comment("# capitalize_after = []")
+    builder.comment(" capitalize_after = []")
     builder.add_list("capitalize_after", [
                      GenStr("."), GenStr("!"), GenStr("?")])
     builder.new_line()
@@ -115,9 +65,75 @@ def make_builder() -> Builder:
     builder.comment(
         " but if you do that and never clear the buffer it is a memory leak")
     builder.add_int("buffer_size", 500)
+    builder.new_line()
+
+    builder.comment(
+        " the following 4 sections define allow you to define actions based on certain keyboarnd and mouse conditions.")
+    builder.comment(
+        " NOTE: in toml any key that has a special symbol like a + needs to be in quotes")
+    builder.comment(
+        " these are the available commands: clear_buffer, clear_buffer_ipc_safe, delete_word, toggle_casing, expand")
+    builder.comment(
+        " this is also the order of precedence if a binding would have both deleted a word and expanded an expression delete_word will run expand will not")
+    builder.comment(
+        " clear buffer clears the internal buffer used by fuzzy chips")
+    builder.comment(
+        " clear buffer ipc safe clears the internal buffer used by fuzzy chips unless it was just set via ipc")
+
+    builder.comment(
+        " delete_word backspaces the previous/current word based on the buffer")
+
+    builder.comment(" toggle_case toggles the previous word between upper and lowwer case unless there is a non leading underscore then it will toggle the captlization of the whole word")
+    builder.comment(
+        " expand: expands the current word based on the buffer also handles appending punctuation if autoexpand is false")
+
+    builder.new_line()
+    builder.comment(
+        " the on_press section triggers when an exact hotkey is pressed that is to say")
+    builder.comment(
+        " if you put space as a key it will trigger if you press space but not if you press shift+space unless that is explicitly also a key")
+    builder.add_custom_section("on_press", "parse_on_press($map)", GenDict)
+    builder.add_str("space", "expand")
+    builder.comment(
+        ' enter = "expand" # expand when you preess enter/return, annoying for coding.')
+    builder.comment(
+        ' "shift+space" = "expand" # expand when you press shift+space, that way it is harder to accidentally expand')
+    builder.add_str("shift+backspace", "delete_word")
+    builder.comment(" these two should probably always be set to this")
+    builder.add_str("up", "clear_buffer_ipc_safe")
+    builder.add_str("down", "clear_buffer_ipc_safe")
+    builder.new_line()
+
+    builder.comment(
+        ' on toggle triggers when a key is pressed and then released without pressing any keys in between.')
+    builder.comment(
+        ' this must be a single key like shift or alt not a hotkey')
+    builder.add_custom_section("on_toggle", "parse_on_toggle($map)", GenDict)
+    builder.add_str("shift", "toggle_case")
+    builder.new_line()
+
+    builder.comment(
+        ' while_down triggers whenever you press any key while one of these keys are down')
+    builder.comment(
+        ' can only be applied to ctrl, alt, and windows')
+    builder.add_custom_section("while_down", "parse_while_down($map)", GenDict)
+    builder.add_str("windows", "clear_buffer")
+    builder.add_str("ctrl", "clear_buffer")
+    builder.add_str("alt", "clear_buffer")
+    builder.new_line()
+
+    builder.comment(
+        ' triggers when a certain mouse button is pressed, left, right, X1, X2, maybe middle or wheel TODO: look into wheel/middle')
+
+    builder.comment(
+        ' in any case the main functionality you would want with this is clearing the buffer when you left click')
+    builder.add_custom_section(
+        "on_mouse_button_down", "parse_on_mouse_button_down($map)", GenDict)
+    builder.add_str("left", "clear_buffer")
+    builder.new_line()
 
     # [chunking] section
-    builder.new_line().add_section("chunking")
+    builder.add_section("chunking")
     builder.comment(" none, last, all")
     builder.comment(" all will expand all chunks in the last word")
     builder.comment(
@@ -144,10 +160,6 @@ def make_builder() -> Builder:
     # [rare] section
     builder.new_line().add_section("rare")
     builder.comment(" these settings can be changed but rarely should")
-    builder.comment(
-        " same as clear_buffer_on unless using ipc if the buffer was just set by ipc then the event won't clear the buffer")
-    builder.add_list("just_set_safe_clear", [GenStr("up"), GenStr("down")])
-    builder.new_line()
     builder.comment(
         " passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized")
     builder.comment(" where as 'hi' it will not")

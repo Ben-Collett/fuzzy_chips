@@ -19,7 +19,7 @@ class AppContext:
         self.current_casing: Casing = Casing.NORMAL
         self.expected_counter: int = 0
         self._buffer: KeyBuffer = KeyBuffer()
-        self._right_arrow_buffer: KeyBuffer = KeyBuffer()
+        self.right_arrow_buffer: KeyBuffer = KeyBuffer()
         self.just_set: threading.Event = threading.Event()
         self.prev_real_event: KeyboardEvent | None = None
         self.command_processor: CommandProcessor = None  # type: ignore
@@ -35,7 +35,7 @@ class AppContext:
 
     def resize_buffers(self, size: int):
         self._buffer.update_capacity(size)
-        self._right_arrow_buffer.update_capacity(size)
+        self.right_arrow_buffer.update_capacity(size)
 
     @classmethod
     def initialize(cls) -> "AppContext":

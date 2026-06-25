@@ -4,6 +4,7 @@ from spacing_type import SpacingType
 from casing import Casing
 from chunking import ChunkingType
 from config_support import load_chips
+from fuzzy_events import parse_on_press, parse_on_toggle, parse_while_down, parse_on_mouse_button_down
 
 class _ExpectedField:
     def __init__(self, default_value=None, cftype=None):
@@ -107,7 +108,7 @@ def _merge_expected(config_map: dict, expected_map: dict, ignored_sections=set()
     return result
 
 def _get_expected_map():
-    return {"general": {"expand_on": _ExpectedList(["space"], str), "toggle_case_on": _ExpectedList(["shift"]), "clear_buffer_on": _ExpectedList(["windows_down", "ctrl_down", "alt_down"]), "capitalize_after": _ExpectedList([".", "!", "?"]), "append_chars": _ExpectedList([".", "!", "?", ",", ";", ")", "]", "}"]), "auto_append": _ExpectedField(False, bool), "buffer_size": _ExpectedField(500, int)}, "chunking": {"chunking_type": _ExpectedField("last", str), "new_chunks_only": _ExpectedField(False, bool), "chunking_ignore": _ExpectedList(["'", "_"])}, "rare": {"just_set_safe_clear": _ExpectedList(["up", "down"]), "captlize_passthrough": _ExpectedList(["\"", "'", "`"])}, "code": {"spacing_type": _ExpectedField("normal", str), "assumed_casing": _ExpectedField("normal", str), "space_on_new": _ExpectedField(True, bool)}, "ipc": {"port": _ExpectedField(8765, int), "host": _ExpectedField("127.0.0.1", str), "ipc_enabled_commands": _ExpectedList([], str)}}
+    return {"general": {"capitalize_after": _ExpectedList([".", "!", "?"]), "append_chars": _ExpectedList([".", "!", "?", ",", ";", ")", "]", "}"]), "auto_append": _ExpectedField(False, bool), "buffer_size": _ExpectedField(500, int)}, "chunking": {"chunking_type": _ExpectedField("last", str), "new_chunks_only": _ExpectedField(False, bool), "chunking_ignore": _ExpectedList(["'", "_"])}, "rare": {"captlize_passthrough": _ExpectedList(["\"", "'", "`"])}, "code": {"spacing_type": _ExpectedField("normal", str), "assumed_casing": _ExpectedField("normal", str), "space_on_new": _ExpectedField(True, bool)}, "ipc": {"port": _ExpectedField(8765, int), "host": _ExpectedField("127.0.0.1", str), "ipc_enabled_commands": _ExpectedList([], str)}}
 
 class Config:
     def __init__(self, config_map: dict | None = None):
@@ -115,13 +116,17 @@ class Config:
             config_map = {}
         merged = _merge_expected(
             config_map, _get_expected_map()
-            , ignored_keys=["'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'chips'}
+            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'on_mouse_button_down', 'while_down', 'on_press', 'chips', 'on_toggle'}
         )
         self.general = GeneralSection(merged["general"])
         self.chunking = ChunkingSection(merged["chunking"])
         self.rare = RareSection(merged["rare"])
         self.code = CodeSection(merged["code"])
         self.ipc = IpcSection(merged["ipc"])
+        self.on_press: dict = parse_on_press(merged)
+        self.on_toggle: dict = parse_on_toggle(merged)
+        self.while_down: dict = parse_while_down(merged)
+        self.on_mouse_button_down: dict = parse_on_mouse_button_down(merged)
         self.chips: dict = load_chips(merged)
 
     def update(self, config_map: dict | None = None):
@@ -129,13 +134,17 @@ class Config:
             config_map = {}
         merged = _merge_expected(
             config_map, _get_expected_map()
-            , ignored_keys=["'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'chips'}
+            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'on_mouse_button_down', 'while_down', 'on_press', 'chips', 'on_toggle'}
         )
         self.general.update(merged["general"])
         self.chunking.update(merged["chunking"])
         self.rare.update(merged["rare"])
         self.code.update(merged["code"])
         self.ipc.update(merged["ipc"])
+        self.on_press: dict = parse_on_press(merged)
+        self.on_toggle: dict = parse_on_toggle(merged)
+        self.while_down: dict = parse_while_down(merged)
+        self.on_mouse_button_down: dict = parse_on_mouse_button_down(merged)
         self.chips: dict = load_chips(merged)
 
 class GeneralSection:
@@ -143,9 +152,6 @@ class GeneralSection:
         self.update(smap)
 
     def update(self, smap: dict):
-        self.expand_on: list[str] = smap["expand_on"]
-        self.toggle_case_on: list = smap["toggle_case_on"]
-        self.clear_buffer_on: list = smap["clear_buffer_on"]
         self.capitalize_after: list = smap["capitalize_after"]
         self.append_chars: list = smap["append_chars"]
         self.auto_append: bool = smap["auto_append"]
@@ -165,7 +171,6 @@ class RareSection:
         self.update(smap)
 
     def update(self, smap: dict):
-        self.just_set_safe_clear: list = smap["just_set_safe_clear"]
         self.captlize_passthrough: list = smap["captlize_passthrough"]
 
 class CodeSection:

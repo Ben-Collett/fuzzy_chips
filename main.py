@@ -1,8 +1,10 @@
-from keyboard._keyboard_event import KeyboardEvent
-from modifiers import SHIFT, CTRL, ALT, WINDOWS
+from config_utils import get_fuzzy_event_keyboard, get_fuzzy_event_button
+from fuzzy_events import FuzzyEvent
 from casing import Casing, convert_casing
+from keyboard import mouse
+from keyboard._mouse_event import ButtonEvent
 from spacing_type import SpacingType
-from collection_utils import captlize_word, count_where, captlize_first_char, decrement_if_greater_than_zero, is_not_empty_str, decrement_if
+from collection_utils import captlize_word, count_where,  decrement_if_greater_than_zero, is_not_empty_str, decrement_if
 from ipc_server import IPCServer
 from utils import down_modifiers, safe_len, to_utf, is_str
 from utils import backspaces_to_delete_previous_word
@@ -14,10 +16,29 @@ from expansion_utils import expand_new
 from utils import is_all_non_alphanumeric_str
 import keyboard
 import signal
-from utils import strict_matches_hotkeys
-
 from main_context import AppContext
 from commands import clear_buffer, activate_normal_casing_mode, terminate
+
+
+def mouse_button_loop(event):
+    if not isinstance(event, ButtonEvent):
+        return
+    events = get_fuzzy_event_button(
+        event, AppContext.get_current().config)
+
+    regular_clear = FuzzyEvent.clear_buffer.value in events
+    safe_clear = FuzzyEvent.clear_buffer_ipc_safe.value in events
+    if handle_clear(regular_clear, safe_clear):
+        return
+
+    delete_prev = FuzzyEvent.delete_word.value in events
+    if delete_prev:
+        delete_previous_word()
+        return
+
+    if FuzzyEvent.toggle_case.value in events:
+        toggle_prev_word_casing()
+        return
 
 
 def move_last(source: KeyBuffer, target: KeyBuffer):
@@ -38,7 +59,7 @@ def set_main_buffer(args: list[str]):
 
 
 def set_buffer_right(args: list[str]):
-    set_buffer(args[::-1], AppContext.get_current()._right_arrow_buffer)
+    set_buffer(args[::-1], AppContext.get_current().right_arrow_buffer)
 
 
 def write(text: str | list[str]):
@@ -89,20 +110,23 @@ def backspace_then_write(backspace_count, to_write, update_expected=True):
     write(to_write)
 
 
-def delete_previous_word(_: list[str]):
+def delete_previous_word(backspace_offset: int = 0):
     ctx = AppContext.get_current()
     buffer = ctx._buffer.get()
 
-    ctx._buffer.backspace()
-
     back_count = max(
-        determine_amount_to_backspace_shift_backspace(buffer) - 1, 0)
+        determine_amount_to_backspace_shift_backspace(buffer)-backspace_offset, 0)
     to_write = ""
     if (
         ctx.current_casing.is_not_normal_casing
         and len(buffer) - back_count - len(ctx._buffer.get_leading_white_space()) > 1
     ):
         to_write = " "
+
+    while backspace_offset > 0:
+        ctx._buffer.backspace()
+        backspace_offset -= 1
+
     backspace_then_write(back_count, to_write, update_expected=True)
 
 
@@ -125,50 +149,19 @@ def handle_auto_append(event, config: Config):
     return False
 
 
-def handle_if_release_event(event: keyboard.KeyboardEvent, toggle_case_on):
+def toggle_prev_word_casing():
     ctx = AppContext.get_current()
-    released_key = event.event_type == keyboard.KEY_UP
-    name = event.name
-    if released_key:
-        name_equals_prev = ctx.prev_real_event and ctx.prev_real_event.name == name
-        manual_typing = ctx.expected_counter == 0
-        if name_equals_prev and name in toggle_case_on and manual_typing:
-            word = ctx._buffer.get_last_word()
-            white_space = ctx._buffer.get_trailing_white_space()
+    word = ctx._buffer.get_last_word()
+    white_space = ctx._buffer.get_trailing_white_space()
 
-            back_count, to_write = shift_press_release(word, white_space)
-            backspace_then_write(back_count, to_write, update_expected=True)
-        return True
-    return False
+    back_count, to_write = shift_press_release(word, white_space)
+    backspace_then_write(back_count, to_write, update_expected=True)
 
 
-def handle_backspace(event, shift_down):
+def handle_clear(regular_clear: bool, safe_clear: bool):
+    should_clear = regular_clear
     ctx = AppContext.get_current()
-    is_backspace = event.name == "backspace"
-    pressed_key = event.event_type == keyboard.KEY_DOWN
-    if is_backspace and pressed_key:
-        if shift_down and ctx.expected_counter == 0:
-            delete_previous_word([])
-        else:
-            ctx._buffer.backspace()
-            decrement_expected_counter()
-        return True
-    return False
-
-
-def handle_clear(name, config: Config, meta_down: bool, ctrl_down: bool, alt_down: bool):
-    ctx = AppContext.get_current()
-    clear_on: list[str] = config.general.clear_buffer_on
-    safe_clear = config.rare.just_set_safe_clear
-    should_clear = name in clear_on
-
-    if "windows_down" in clear_on:
-        should_clear = should_clear or meta_down
-    if "alt_down" in clear_on:
-        should_clear = should_clear or alt_down
-    if "ctrl_down" in clear_on:
-        should_clear = should_clear or ctrl_down
-    if not ctx.just_set.is_set() and name in safe_clear:
+    if not ctx.just_set.is_set() and safe_clear:
         should_clear = True
 
     if should_clear:
@@ -187,7 +180,7 @@ def add_utf_and_update_expected(utf: str | None):
 def handle_expand_punctuation(word, append_chars, white_space, prev_whitespace):
     """
     word = the punctuation mark
-    append_chars the list of characters that should 
+    append_chars the list of characters that should
     be appended as punctatoin
     white_space = space after the punctuation mark
     prev_whitespace = space before the punctuation mark
@@ -229,15 +222,9 @@ def handle_new_space(
 
 def get_right_word() -> str:
     ctx = AppContext.get_current()
-    if len(ctx._right_arrow_buffer.get_trailing_white_space()) == 0:
-        return ctx._right_arrow_buffer.get_word(-1)[::-1]
+    if len(ctx.right_arrow_buffer.get_leading_white_space()) == 0:
+        return ctx.right_arrow_buffer.get_word(-1)[::-1]
     return ""
-
-
-def get_left_right_part(word: str) -> tuple[str, str]:
-    left_part = word
-    right_part = get_right_word()
-    return left_part, right_part
 
 
 def handle_code_spacing(left_part: str, right_part: str, white_space: str, config: Config) -> bool:
@@ -295,133 +282,138 @@ def escape_to_normal_casing(white_space: str, event_utf: str | None):
     return False
 
 
-def should_expand(event: keyboard.KeyboardEvent, user_typing: bool, config: Config):
-    pressed_key = event.event_type == keyboard.KEY_DOWN
-    return user_typing and pressed_key and strict_matches_hotkeys(config.general.expand_on, event)
-
-
-def handle_expand(event: keyboard.KeyboardEvent,  config: Config):
+def handle_expand(config: Config, event_name_utf=""):
     ctx = AppContext.get_current()
     buffer = ctx._buffer
     append_chars = config.general.append_chars
-    user_typing = ctx.expected_counter == 0
-    event_name = event.name or ""
-    event_name_utf = to_utf(event_name)
 
-    if should_expand(event, user_typing, config):
-        buffer.add_if_not_none(event_name_utf)
-        white_space = ctx._buffer.get_trailing_white_space()
+    white_space = ctx._buffer.get_trailing_white_space()
 
-        # TODO: figure out how to handle this
-        if escape_to_normal_casing(white_space, event_name_utf):
-            return True
-
-        prev_whitespace = ctx._buffer.get_white_space_before_prev_word()
-        word, flags = ctx._buffer.get_word_and_new_state(-1)
-        prev_word = ctx._buffer.get_word(-2)
-
-        if handle_expand_punctuation(
-            word, append_chars, white_space, prev_whitespace
-        ):
-            return True
-
-        process_chip = len(white_space) <= 1
-
-        to_write: str | list[str] | None = None
-        skip = False
-        if process_chip:
-            left_part, right_part = "", ""
-            if ctx.current_casing == Casing.NORMAL:
-                left_part, right_part = get_left_right_part(word)
-                skip = is_all_non_alphanumeric_str(
-                    left_part) or get_chip_result(left_part, config) is not None
-                if not skip and handle_new_space(
-                    left_part, right_part, white_space, flags, event_name_utf, config
-                ):
-                    return True
-
-                if not skip and handle_code_spacing(
-                    left_part, right_part, white_space, config
-                ):
-                    return True
-
-            to_write = get_chip_result(word, config)
-            if left_part != "" and (not skip and to_write == word or to_write is None):
-                to_write = expand_chunking(left_part, flags, config)
-
-        if to_write is None:
-            to_write = word
-
-        to_write_is_str = is_str(to_write)
-        to_write = captlize_if_needed(to_write, to_write_is_str, config)
-
-        overlapping_start = 0
-        prepended = 0
-
-        if to_write_is_str:
-            to_write, prepended, overlapping_start = convert_casing(
-                to_write, word, prev_word, prev_whitespace, ctx.current_casing
-            )
-
-        if is_not_empty_str(to_write) and (to_write != word or prepended != 0):
-            to_write = to_write[overlapping_start:]
-            to_backspace_count = len(
-                word) + safe_len(event_name_utf) - overlapping_start + prepended
-            if to_write_is_str:
-                utf = event_name_utf or ""
-                if utf.isspace():
-                    to_write += utf
-                else:
-                    to_write += " "
-            backspace_then_write(to_backspace_count,
-                                 to_write, update_expected=True)
+    # TODO: figure out how to handle this
+    if escape_to_normal_casing(white_space, event_name_utf):
         return True
-    return False
+
+    prev_whitespace = buffer.get_white_space_before_prev_word()
+    word, flags = buffer.get_word_and_new_state(-1)
+    prev_word = buffer.get_word(-2)
+
+    if handle_expand_punctuation(
+        word, append_chars, white_space, prev_whitespace
+    ):
+        return True
+
+    process_chip = len(white_space) <= 1
+
+    to_write: str | list[str] | None = None
+    skip = False
+    if process_chip:
+        left_part, right_part = "", ""
+        if ctx.current_casing == Casing.NORMAL:
+            left_part = word
+            right_part = get_right_word()
+            skip = is_all_non_alphanumeric_str(
+                left_part) or get_chip_result(left_part, config) is not None
+            if not skip and handle_new_space(
+                left_part, right_part, white_space, flags, event_name_utf, config
+            ):
+                return True
+
+            if not skip and handle_code_spacing(
+                left_part, right_part, white_space, config
+            ):
+                return True
+
+        to_write = get_chip_result(word, config)
+        if left_part != "" and (not skip and to_write == word or to_write is None):
+            to_write = expand_chunking(left_part, flags, config)
+
+    if to_write is None:
+        to_write = word
+
+    to_write_is_str = is_str(to_write)
+    to_write = captlize_if_needed(to_write, to_write_is_str, config)
+
+    overlapping_start = 0
+    prepended = 0
+
+    if to_write_is_str:
+        to_write, prepended, overlapping_start = convert_casing(
+            to_write, word, prev_word, prev_whitespace, ctx.current_casing
+        )
+
+    if is_not_empty_str(to_write) and (to_write != word or prepended != 0):
+        to_write = to_write[overlapping_start:]
+        to_backspace_count = len(
+            word) + safe_len(event_name_utf) - overlapping_start + prepended
+        if to_write_is_str:
+            utf = event_name_utf or ""
+            if utf.isspace():
+                to_write += utf
+            else:
+                to_write += " "
+        backspace_then_write(to_backspace_count,
+                             to_write, update_expected=True)
 
 
 def _process_event(event: keyboard.KeyboardEvent, config: Config):
     ctx = AppContext.get_current()
+
+    down_mods = down_modifiers(event)
+    if ctx.expected_counter == 0:
+        events = get_fuzzy_event_keyboard(
+            event, ctx.prev_real_event, down_mods, config)
+    else:
+        events = []
+
+    regular_clear = FuzzyEvent.clear_buffer.value in events
+    safe_clear = FuzzyEvent.clear_buffer_ipc_safe.value in events
+    if handle_clear(regular_clear, safe_clear):
+        return
+
     if handle_auto_append(event, config):
         return
 
-    down_mods = down_modifiers(event)
-    shift_down = SHIFT in down_mods
-    alt_down = ALT in down_mods
-    meta_down = WINDOWS in down_mods
-    ctrl_down = CTRL in down_mods
+    utf: str | None = None
+    is_pressed = event.event_type == keyboard.KEY_DOWN
+    if is_pressed:
+        name = event.name
+        assert name is not None
 
-    if handle_clear(event.name, config, meta_down, ctrl_down, alt_down):
+        if name == "left":
+            move_last(source=ctx._buffer, target=ctx.right_arrow_buffer)
+            decrement_expected_counter()
+        elif name == "right":
+            move_last(source=ctx.right_arrow_buffer, target=ctx._buffer)
+            decrement_expected_counter()
+        elif name == "delete":
+            ctx.right_arrow_buffer.remove_first()
+            decrement_expected_counter()
+        else:
+            utf = to_utf(name)
+            if utf and (utf.isprintable() or utf.isspace()):
+                ctx._buffer.add(utf)
+                decrement_expected_counter()
+
+    delete_prev = FuzzyEvent.delete_word.value in events
+    if delete_prev:
+        if event.name == "backspace" and is_pressed:
+            delete_previous_word(backspace_offset=1)
+        else:
+            delete_previous_word()
         return
 
-    if handle_backspace(event, shift_down):
-        return
-
-    if handle_if_release_event(event, config.general.toggle_case_on):
-        return
-
-    # ================EVERY EVENT BELOW THIS POINT IS GUARNEETD TO BE KEY DOWN=============
-
-    if handle_expand(event,  config):
-        return
-
-    name = event.name
-    assert name is not None
-
-    if name == "left":
-        move_last(source=ctx._buffer, target=ctx._right_arrow_buffer)
+    if is_pressed and event.name == "backspace":
+        ctx._buffer.backspace()
         decrement_expected_counter()
-        return
-    elif name == "right":
-        move_last(source=ctx._right_arrow_buffer, target=ctx._buffer)
-        decrement_expected_counter()
-        return
-    elif name == "delete":
-        ctx._right_arrow_buffer.remove_first()
-        decrement_expected_counter()
+
+    # ============post buffer update========================
+    if FuzzyEvent.toggle_case.value in events:
+        toggle_prev_word_casing()
         return
 
-    utf: str | None = to_utf(name)
-    add_utf_and_update_expected(utf)
+    should_expand = FuzzyEvent.expand.value in events
+    if should_expand:
+        handle_expand(config, utf or "")
 
 
 def process_event_wrapper(event: keyboard.KeyboardEvent):
@@ -435,7 +427,7 @@ def process_event_wrapper(event: keyboard.KeyboardEvent):
     ctx.just_set.clear()
     if should_update_new:
         ctx._buffer.mark_recent_as_old()
-        ctx._right_arrow_buffer.mark_recent_as_old()
+        ctx.right_arrow_buffer.mark_recent_as_old()
     if ctx.expected_counter == 0:
         ctx.prev_real_event = event
 
@@ -456,6 +448,7 @@ def main():
     original_handler = signal.signal(signal.SIGINT, sigint_handler)
 
     keyboard.hook(process_event_wrapper)
+    mouse.hook(mouse_button_loop)
     try:
         ctx.stop_event.wait()
     except KeyboardInterrupt:

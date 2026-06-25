@@ -1,37 +1,9 @@
 # NOTE: all settings besideds the chips section at the bottom of the file are set equal to their default behavior so if you want the described functionality you don't need  to override that key
 
 [general]
-# expand_on let's you define what hotkeys chips will expand on.
-# by default it will expand on space
-# The hotkeys have to match what is in the list exactly to trigger so shift+space will not trigger an expansion if only space is in the list.
-# As such with the default behavior I would recommend using space and enter to expand the expression and shift+space and shift+enter when you don't
-# all hotkeys should consiste of only one non modifier character and any combination of modifiers separated by space for example windows+alt+ctrl+shift+space
-# want to expand.
-# The hotkey trigger should not be keys that are used for other things like clearing the buffer that will cause problems
-# While there is not anything stopping it you really shouldn't set the hotkey to a printable non-whitespace character like "a" or "8"
-#
-# LINUX WARNING: because of how linux handles keyboards if you want to use shift in a hot key the chip may not expand until you release
-# the shift key. And if you press shift while the text is being typed it can cause problems. I may be able to solve this in the future adding a mode that grabs exclusive access to the keyboard.
-expand_on = ["space"]
-# expand_on = ["space", "enter"] # expand on enter as well as space, can be annoying for clis and code
-# expand_on = ["shift+space", "shift+enter"] # you can invert the typical behavior of using shift to not expand to make it expand and regular entering not, this can be less difficult for some users, though thoertically slower
-# expand_on = ["space"] # if you want to only expand on the space key
-# expand_on = ["menu"] # you could also do a dedicated expansion key like using the menu key if your keyboard has one though the menu key may be used by some programs so you should probably pick a different one
-
-# will toggle the case of the previous or current word when you press and release shift without hitting any characters in between.
-toggle_case_on = ["shift"]
-
-# clear_buffer_on: clears the internal buffer of fuzzy chips when you press the windows key
-# left,right, up,down are all arrow keys and windows_down test if the windows/meta/gui key is down "alt_down", "ctrl_down" are also options do the same thing for their respective modifier,
-# be mindful of however you keyremapper handles keyoverloading if you use one
-# for example I use keyd and if I press right shift it will hold down alt if I release it without typing anything else it will type ?
-# that means the buffer gets cleared and it would mess with append_chars if I had alt_down in my config to clear the buffer
-# Also keep in mind using clear_on_buffer will interfere with toggle_case_on if you put the same key in both
-clear_buffer_on = ["windows_down", "ctrl_down", "alt_down"]
-
 # if the previous word ends with one of these characters then the current word will be capitalized once you hit space
 # set to an empty list to avoid any auto captlizing
-## capitalize_after = []
+# capitalize_after = []
 capitalize_after = [".", "!", "?"]
 
 # append_chars have special behavior depending on the setting of auto_append
@@ -46,6 +18,44 @@ auto_append = false
 # key events are stored if you set it to 0 or less then the buffer will have unlimited capacity
 # but if you do that and never clear the buffer it is a memory leak
 buffer_size = 500
+
+# the following 4 sections define allow you to define actions based on certain keyboarnd and mouse conditions.
+# NOTE: in toml any key that has a special symbol like a + needs to be in quotes
+# these are the available commands: clear_buffer, clear_buffer_ipc_safe, delete_word, toggle_casing, expand
+# this is also the order of precedence if a binding would have both deleted a word and expanded an expression delete_word will run expand will not
+# clear buffer clears the internal buffer used by fuzzy chips
+# clear buffer ipc safe clears the internal buffer used by fuzzy chips unless it was just set via ipc
+# delete_word backspaces the previous/current word based on the buffer
+# toggle_case toggles the previous word between upper and lowwer case unless there is a non leading underscore then it will toggle the captlization of the whole word
+# expand: expands the current word based on the buffer also handles appending punctuation if autoexpand is false
+
+# the on_press section triggers when an exact hotkey is pressed that is to say
+# if you put space as a key it will trigger if you press space but not if you press shift+space unless that is explicitly also a key
+[on_press]
+space = "expand"
+# enter = "expand" # expand when you preess enter/return, annoying for coding.
+# "shift+space" = "expand" # expand when you press shift+space, that way it is harder to accidentally expand
+"shift+backspace" = "delete_word"
+# these two should probably always be set to this
+up = "clear_buffer_ipc_safe"
+down = "clear_buffer_ipc_safe"
+
+# on toggle triggers when a key is pressed and then released without pressing any keys in between.
+# this must be a single key like shift or alt not a hotkey
+[on_toggle]
+shift = "toggle_case"
+
+# while_down triggers whenever you press any key while one of these keys are down
+# can only be applied to ctrl, alt, and windows
+[while_down]
+windows = "clear_buffer"
+ctrl = "clear_buffer"
+alt = "clear_buffer"
+
+# triggers when a certain mouse button is pressed, left, right, X1, X2, maybe middle or wheel TODO: look into wheel/middle
+# in any case the main functionality you would want with this is clearing the buffer when you left click
+[on_mouse_button_down]
+left = "clear_buffer"
 
 [chunking]
 # none, last, all
@@ -65,9 +75,6 @@ chunking_ignore = ["'", "_"]
 
 [rare]
 # these settings can be changed but rarely should
-# same as clear_buffer_on unless using ipc if the buffer was just set by ipc then the event won't clear the buffer
-just_set_safe_clear = ["up", "down"]
-
 # passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized
 # where as 'hi' it will not
 captlize_passthrough = ["\"", "'", "`"]

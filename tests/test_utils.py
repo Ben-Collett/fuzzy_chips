@@ -64,27 +64,22 @@ class TestIsAllNonAlphanumericStr:
 
 class TestToUtf:
     @pytest.mark.parametrize("char,expected", [("h", "h"), ("b", "b")])
-    def test_returns_lowercase_char(self, char, expected):
-        assert to_utf(char, False) == expected
-
-    @pytest.mark.parametrize("char,expected", [("h", "H"), ("b", "B")])
-    def test_returns_uppercase_char_when_shift_down(self, char, expected):
-        assert to_utf(char, True) == expected
+    def test_returns_char(self, char, expected):
+        assert to_utf(char) == expected
 
     @pytest.mark.parametrize(
-        "key,shift,expected",
+        "key,expected",
         [
-            ("space", False, " "),
-            ("space", True, " "),
-            ("tab", False, "\t"),
-            ("enter", False, "\n"),
+            ("space", " "),
+            ("tab", "\t"),
+            ("enter", "\n"),
         ],
     )
-    def test_special_keys(self, key, shift, expected):
-        assert to_utf(key, shift) == expected
+    def test_special_keys(self, key, expected):
+        assert to_utf(key) == expected
 
     def test_invalid_key(self):
-        assert to_utf("blag", False) is None
+        assert to_utf("blag") is None
 
 
 class TestAlphaNumericish:

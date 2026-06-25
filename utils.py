@@ -25,27 +25,27 @@ def strict_matches_hotkey(hotkey: str, key_event: KeyboardEvent) -> bool:
     if key_event.name != main_key:
         return False
 
-    actual_mods = down_modifiers(key_event)
+    actual_mods = set(down_modifiers(key_event))
     return required_modifiers == actual_mods
 
 
-def down_modifiers(event: KeyboardEvent):
+def down_modifiers(event: KeyboardEvent) -> list[str]:
     modifiers = event.modifiers
     if modifiers is None:
         log_info("modifiers where none some how")
         modifiers = []
 
-    out = set()
+    out = []
 
     def add_if_needed(mod):
         if SHIFT in mod:
-            out.add(SHIFT)
+            out.append(SHIFT)
         elif CTRL in mod:
-            out.add(CTRL)
+            out.append(CTRL)
         elif ALT in mod:
-            out.add(ALT)
+            out.append(ALT)
         elif WINDOWS in mod:
-            out.add(WINDOWS)
+            out.append(WINDOWS)
 
     # if the caller presses shift it will report the name of shift but the
     # current modifier state of shift won't be down

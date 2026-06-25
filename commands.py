@@ -10,31 +10,23 @@ from config_utils import reload_config
 
 
 def activate_casing(casing: Casing):
-    from main_context import AppContext
-
     ctx = AppContext.get_current()
     ctx.current_casing = casing
 
 
 def terminate(_: list[str]):
     log_info("terminating...")
-    from main_context import AppContext
-
     ctx = AppContext.get_current()
     ctx.stop_event.set()
 
 
-def clear_buffer(_: list[str]):
-    from main_context import AppContext
-
+def clear_buffer(_: list[str] | None = None):
     ctx = AppContext.get_current()
     ctx._buffer.clear()
-    ctx._right_arrow_buffer.clear()
+    ctx.right_arrow_buffer.clear()
 
 
 def set_buffer(args, buffer):
-    from main_context import AppContext
-
     ctx = AppContext.get_current()
     ctx.just_set.set()
 
@@ -43,15 +35,11 @@ def set_buffer(args, buffer):
 
 
 def set_main_buffer(args: list[str]):
-    from main_context import AppContext
-
     set_buffer(args, AppContext.get_current()._buffer)
 
 
 def set_buffer_right(args: list[str]):
-    from main_context import AppContext
-
-    set_buffer(args[::-1], AppContext.get_current()._right_arrow_buffer)
+    set_buffer(args[::-1], AppContext.get_current().right_arrow_buffer)
 
 
 def restart(_: list[str]):
