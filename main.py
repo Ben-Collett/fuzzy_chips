@@ -6,7 +6,7 @@ from keyboard._mouse_event import ButtonEvent
 from spacing_type import SpacingType
 from collection_utils import captlize_word, count_where,  decrement_if_greater_than_zero, is_not_empty_str, decrement_if
 from ipc_server import IPCServer
-from utils import down_modifiers, safe_len, to_utf, is_str
+from utils import down_modifiers, safe_len, to_utf, is_str, is_only_shift_or_no_modifiers
 from utils import backspaces_to_delete_previous_word
 from buffer import KeyBuffer
 from config import Config
@@ -390,7 +390,8 @@ def _process_event(event: keyboard.KeyboardEvent, config: Config):
             decrement_expected_counter()
         else:
             utf = to_utf(name)
-            if utf and (utf.isprintable() or utf.isspace()):
+            is_displayed_key = utf and (utf.isprintable() or utf.isspace())
+            if is_displayed_key and is_only_shift_or_no_modifiers(event):
                 ctx._buffer.add(utf)
                 decrement_expected_counter()
 

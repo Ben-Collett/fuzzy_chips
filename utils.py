@@ -29,6 +29,10 @@ def strict_matches_hotkey(hotkey: str, key_event: KeyboardEvent) -> bool:
     return required_modifiers == actual_mods
 
 
+def is_only_shift_or_no_modifiers(event: KeyboardEvent) -> bool:
+    return all(m == SHIFT for m in down_modifiers(event))
+
+
 def down_modifiers(event: KeyboardEvent) -> list[str]:
     modifiers = event.modifiers
     if modifiers is None:

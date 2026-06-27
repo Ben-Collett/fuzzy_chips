@@ -116,6 +116,10 @@ def make_builder() -> Builder:
         ' while_down triggers whenever you press any key while one of these keys are down')
     builder.comment(
         ' can only be applied to ctrl, alt, and windows')
+    builder.comment(
+        ' fair warning to keyd users if you use overload(alt,whatever) with keyd it will also press control')
+    builder.comment(
+        ' when you release the key without pressing any other keys. That is to avoid triggering a hotkey in firefox I think.')
     builder.add_custom_section("while_down", "parse_while_down($map)", GenDict)
     builder.add_str("windows", "clear_buffer")
     builder.add_str("ctrl", "clear_buffer")

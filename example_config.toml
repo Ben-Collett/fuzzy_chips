@@ -47,6 +47,8 @@ shift = "toggle_case"
 
 # while_down triggers whenever you press any key while one of these keys are down
 # can only be applied to ctrl, alt, and windows
+# fair warning to keyd users if you use overload(alt,whatever) with keyd it will also press control
+# when you release the key without pressing any other keys. That is to avoid triggering a hotkey in firefox I think.
 [while_down]
 windows = "clear_buffer"
 ctrl = "clear_buffer"

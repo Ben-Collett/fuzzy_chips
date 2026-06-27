@@ -116,7 +116,7 @@ class Config:
             config_map = {}
         merged = _merge_expected(
             config_map, _get_expected_map()
-            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'on_mouse_button_down', 'while_down', 'on_press', 'chips', 'on_toggle'}
+            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'chips', 'on_mouse_button_down', 'on_toggle', 'while_down', 'on_press'}
         )
         self.general = GeneralSection(merged["general"])
         self.chunking = ChunkingSection(merged["chunking"])
@@ -134,7 +134,7 @@ class Config:
             config_map = {}
         merged = _merge_expected(
             config_map, _get_expected_map()
-            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'on_mouse_button_down', 'while_down', 'on_press', 'chips', 'on_toggle'}
+            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'chips', 'on_mouse_button_down', 'on_toggle', 'while_down', 'on_press'}
         )
         self.general.update(merged["general"])
         self.chunking.update(merged["chunking"])
