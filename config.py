@@ -108,7 +108,7 @@ def _merge_expected(config_map: dict, expected_map: dict, ignored_sections=set()
     return result
 
 def _get_expected_map():
-    return {"general": {"capitalize_after": _ExpectedList([".", "!", "?"]), "append_chars": _ExpectedList([".", "!", "?", ",", ";", ")", "]", "}"]), "auto_append": _ExpectedField(False, bool), "buffer_size": _ExpectedField(500, int)}, "chunking": {"chunking_type": _ExpectedField("last", str), "new_chunks_only": _ExpectedField(False, bool), "chunking_ignore": _ExpectedList(["'", "_"])}, "rare": {"captlize_passthrough": _ExpectedList(["\"", "'", "`"])}, "code": {"spacing_type": _ExpectedField("normal", str), "assumed_casing": _ExpectedField("normal", str), "space_on_new": _ExpectedField(True, bool)}, "ipc": {"port": _ExpectedField(8765, int), "host": _ExpectedField("127.0.0.1", str), "ipc_enabled_commands": _ExpectedList([], str)}}
+    return {"general": {"capitalize_after": _ExpectedList([".", "!", "?"]), "append_chars": _ExpectedList([".", "!", "?", ",", ";", ")", "]", "}"]), "auto_append": _ExpectedField(False, bool), "buffer_size": _ExpectedField(500, int)}, "chunking": {"chunking_type": _ExpectedField("last", str), "new_chunks_only": _ExpectedField(False, bool), "chunking_ignore": _ExpectedList(["'", "_"])}, "rare": {"capitalize_passthrough": _ExpectedList(["\"", "'", "`"])}, "code": {"spacing_type": _ExpectedField("normal", str), "assumed_casing": _ExpectedField("normal", str), "space_on_new": _ExpectedField(True, bool)}, "ipc": {"port": _ExpectedField(8765, int), "host": _ExpectedField("127.0.0.1", str), "ipc_enabled_commands": _ExpectedList([], str)}}
 
 class Config:
     def __init__(self, config_map: dict | None = None):
@@ -116,7 +116,7 @@ class Config:
             config_map = {}
         merged = _merge_expected(
             config_map, _get_expected_map()
-            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'chips', 'on_mouse_button_down', 'on_toggle', 'while_down', 'on_press'}
+            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'on_press', 'while_down', 'on_toggle', 'chips', 'on_mouse_button_down'}
         )
         self.general = GeneralSection(merged["general"])
         self.chunking = ChunkingSection(merged["chunking"])
@@ -134,7 +134,7 @@ class Config:
             config_map = {}
         merged = _merge_expected(
             config_map, _get_expected_map()
-            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'chips', 'on_mouse_button_down', 'on_toggle', 'while_down', 'on_press'}
+            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'on_press', 'while_down', 'on_toggle', 'chips', 'on_mouse_button_down'}
         )
         self.general.update(merged["general"])
         self.chunking.update(merged["chunking"])
@@ -171,7 +171,7 @@ class RareSection:
         self.update(smap)
 
     def update(self, smap: dict):
-        self.captlize_passthrough: list = smap["captlize_passthrough"]
+        self.capitalize_passthrough: list = smap["capitalize_passthrough"]
 
 class CodeSection:
     def __init__(self, smap: dict):

@@ -1,5 +1,7 @@
 from enum import Enum
 
+from my_logger import log_warning
+
 
 class FuzzyEvent(Enum):
     clear_buffer = "clear_buffer"
@@ -31,7 +33,7 @@ def parse_on_press(config: dict) -> dict[str, FuzzyEvent]:
     for key, val in section.items():
         event = FuzzyEvent.from_str(val)
         if event is None:
-            print(f"unknown event {key}={val} on_press, skipping")
+            log_warning(f"unknown event {key}={val} on_press, skipping")
             continue
         out[key] = val
     return out
@@ -50,12 +52,12 @@ def parse_on_toggle(config: dict) -> dict[str, FuzzyEvent]:
     for key, val in section.items():
         event = FuzzyEvent.from_str(val)
         if "+" in key and len(key) > 1:
-            print(
+            log_warning(
                 f" {key} hotkeys can not be on_toggle only single keys like shift, skipping")
             continue
 
         if event is None:
-            print(f"unknown event {key}={val} on_press, skipping")
+            log_warning(f"unknown event {key}={val} on_press, skipping")
             continue
         out[key] = val
     return out
@@ -76,12 +78,12 @@ def parse_while_down(config: dict) -> dict[str, FuzzyEvent]:
     for key, val in section.items():
         event = FuzzyEvent.from_str(val)
         if key not in accepted_keys:
-            print(
+            log_warning(
                 f" {key} is not a known modifier only modifiers are allowed in while_down {accepted_keys}, skipping")
             continue
 
         if event is None:
-            print(f"unknown event {key}={val} on_press, skipping")
+            log_warning(f"unknown event {key}={val} on_press, skipping")
             continue
         out[key] = val
     return out
@@ -100,7 +102,7 @@ def parse_on_mouse_button_down(config: dict) -> dict[str, FuzzyEvent]:
     for key, val in section.items():
         event = FuzzyEvent.from_str(val)
         if event is None:
-            print(f"unknown event {key}={val} on_press, skipping")
+            log_warning(f"unknown event {key}={val} on_press, skipping")
             continue
         out[key] = val
     return out

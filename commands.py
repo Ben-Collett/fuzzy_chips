@@ -39,7 +39,9 @@ def set_main_buffer(args: list[str]):
 
 
 def set_buffer_right(args: list[str]):
-    set_buffer(args[::-1], AppContext.get_current().right_arrow_buffer)
+    # args is a list with only one string always I think
+    set_buffer("".join(args)[::-1],
+               AppContext.get_current().right_arrow_buffer)
 
 
 def restart(_: list[str]):
@@ -73,8 +75,7 @@ def activate_camel_mode(_: list[str]):
 
 def cmd_reload(ctx: AppContext,  _):
     log_info("reloading")
-    reload_config(ctx.config)
-    ctx.resize_buffers(ctx.config.general.buffer_size)
+    ctx.reload_config()
 
 
 def make_processor(ctx: AppContext):

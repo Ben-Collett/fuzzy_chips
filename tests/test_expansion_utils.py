@@ -1,10 +1,9 @@
 import pytest
 from unittest.mock import MagicMock
+from config_wrapper import ConfigWrapper
 from frozen_dict import FrozenDict
 from expansion_utils import (
     _partition_non_alnum_edges,
-    is_valid_chip_str,
-    valid_chip,
     _update_captlization,
     _last_capital_segment,
     _last_snake_part,
@@ -37,34 +36,6 @@ class TestExtractIgnoredLeadingWordTrailing:
     def test_extract_ignored(self, word, expected):
         result = _partition_non_alnum_edges(word)
         assert result == expected
-
-
-class TestIsValidChipStr:
-    def test_is_valid_chip_str_true(self):
-        config = MagicMock()
-        fd = FrozenDict.from_string("hi")
-        config.chips = {fd: "hello"}
-        assert is_valid_chip_str("hi", config) is True
-
-    def test_is_valid_chip_str_false(self):
-        config = MagicMock()
-        fd = FrozenDict.from_string("hi")
-        config.chips = {}
-        assert is_valid_chip_str("hi", config) is False
-
-
-class TestValidChip:
-    def test_valid_chip_true(self):
-        config = MagicMock()
-        fd = FrozenDict.from_string("hi")
-        config.chips = {fd: "hello"}
-        assert valid_chip(fd, config) is True
-
-    def test_valid_chip_false(self):
-        config = MagicMock()
-        fd = FrozenDict.from_string("hi")
-        config.chips = {}
-        assert valid_chip(fd, config) is False
 
 
 class TestUpdateCaptlization:
@@ -136,7 +107,7 @@ class TestExpandSnakeAndUpperSnakeCase:
 
     def test_expand_snake_trailing_underscore(self, mock_config):
         result = expand_snake_and_upper_snake_case(
-            "hello_", "world", Casing.SNAKE, mock_config
+            "hello_", "world", Casing.SNAKE, ConfigWrapper(mock_config)
         )
         assert result == ([" "], 1)
 
@@ -145,10 +116,12 @@ class TestExpandCammelAndProperCase:
     @pytest.fixture
     def mock_config(self):
         config = MagicMock()
+        config.chips = {}
         return config
 
     def test_expand_cammel_case(self, mock_config):
-        result = expand_cammel_and_proper_case("Hello", "World", mock_config)
+        result = expand_cammel_and_proper_case(
+            "Hello", "World", ConfigWrapper(mock_config))
         assert result[0] == [" "]
 
 
@@ -169,11 +142,12 @@ class TestExpandCodeCasing:
     def mock_config(self):
         config = MagicMock()
         config.space_on_new = True
+        config.chips = {}
         return config
 
     def test_expand_snake_code_casing(self, mock_config):
         result = expand_code_casing(
-            "hello", "world", Casing.SNAKE, mock_config)
+            "hello", "world", Casing.SNAKE, ConfigWrapper(mock_config))
         assert result[0] == ["_"]
 
 
@@ -235,7 +209,7 @@ class TestExpandNew:
         config = MagicMock()
         config.assumed_casing = Casing.SNAKE
         config.space_on_new = True
-        return config
+        return ConfigWrapper(config)
 
     def test_expand_new_empty_left(self, mock_config):
         result = expand_new("", [], " ", "test", mock_config)
@@ -255,7 +229,7 @@ class TestExpandChunking:
         config.chunking.chunking_ignore = ["_"]
         config.chunking.chunking_type = ChunkingType.ALL
         config.chunking.new_chunks_only = False
-        return config
+        return ConfigWrapper(config)
 
     @pytest.fixture
     def mock_config_last(self):
@@ -265,7 +239,7 @@ class TestExpandChunking:
         config.chunking.chunking_ignore = ["_"]
         config.chunking.chunking_type = ChunkingType.LAST
         config.chunking.new_chunks_only = False
-        return config
+        return ConfigWrapper(config)
 
     @pytest.fixture
     def mock_config_new_chunks(self):
@@ -275,7 +249,7 @@ class TestExpandChunking:
         config.chunking.chunking_ignore = ["_"]
         config.chunking.chunking_type = ChunkingType.LAST
         config.chunking.new_chunks_only = True
-        return config
+        return ConfigWrapper(config)
 
     def test_expand_chunking_all_type_expands_all_chunks(self, mock_config):
         result = expand_chunking(

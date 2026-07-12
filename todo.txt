@@ -1,0 +1,5 @@
+things left to test:
+assumed casing, I need to figure out what I was thinking when I wrote that option and if it's even working
+new chunking?
+
+bug: require releasing shift to type ?

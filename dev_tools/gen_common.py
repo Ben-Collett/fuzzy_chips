@@ -2,6 +2,10 @@ from config_generator import Builder, GenDict, build_python, build_toml
 from config_generator.gen_types import GenStr, GenCustom
 from pathlib import Path
 
+# words I miss spell a lot
+CAPITALIZE = "capitalize"
+CAPITALIZED = "capitalized"
+
 
 def make_builder() -> Builder:
     spacing_type = GenCustom(
@@ -37,10 +41,10 @@ def make_builder() -> Builder:
     builder.new_line().add_section("general")
     # capitalize_after
     builder.comment(
-        " if the previous word ends with one of these characters then the current word will be capitalized once you hit space")
+        f" if the previous word ends with one of these characters then the current word will be {CAPITALIZED} once you hit space")
     builder.comment(" set to an empty list to avoid any auto captlizing")
-    builder.comment(" capitalize_after = []")
-    builder.add_list("capitalize_after", [
+    builder.comment(f" {CAPITALIZE}_after = []")
+    builder.add_list(f"{CAPITALIZE}_after", [
                      GenStr("."), GenStr("!"), GenStr("?")])
     builder.new_line()
 
@@ -165,9 +169,9 @@ def make_builder() -> Builder:
     builder.new_line().add_section("rare")
     builder.comment(" these settings can be changed but rarely should")
     builder.comment(
-        " passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized")
+        f" passes through the captlization modifier of the last word so if it is 'hi.' the next word will be {CAPITALIZED}")
     builder.comment(" where as 'hi' it will not")
-    builder.add_list("captlize_passthrough", [
+    builder.add_list(f"{CAPITALIZE}_passthrough", [
                      GenStr('"'), GenStr("'"), GenStr("`")])
 
     # [code] section
@@ -313,7 +317,7 @@ def make_builder() -> Builder:
     builder.add_str("in", "in")
     builder.new_line()
     builder.comment(
-        " I on it's own is always captlized(if your not doing coding/math)")
+        f" I on it's own is always {CAPITALIZED}(if your not doing coding/math)")
     builder.add_str("i", "I")
     builder.comment(
         " abbreviations for speed, they can even be a single letter!")

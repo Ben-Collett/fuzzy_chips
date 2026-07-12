@@ -2,16 +2,16 @@
 import socket
 import threading
 from typing import Optional
+from config_wrapper import ConfigWrapper
 from my_logger import log_info
 from command_processor import CommandProcessor
-from config import Config
 
 
 class IPCServer:
     def __init__(
         self,
         command_processor: CommandProcessor,
-        config: Config,
+        config: ConfigWrapper,
     ):
         self.command_processor = command_processor
         self.config = config
@@ -21,11 +21,11 @@ class IPCServer:
 
     @property
     def host(self):
-        return self.config.ipc.host
+        return self.config.get_host()
 
     @property
     def port(self):
-        return self.config.ipc.port
+        return self.config.get_port()
 
     def start(self):
         """Start the IPC server in a separate thread."""

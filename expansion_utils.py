@@ -1,16 +1,14 @@
 from chunking import ChunkingType
-from frozen_dict import FrozenDict
+from config_wrapper import ConfigWrapper
 from casing import Casing, determine_code_casing
 from collection_utils import count_where,  captlize_first_char, ends_with_alnum, is_not_empty_str
 from collection_utils import toggle_all_caps, toggle_captlize_word
 from typing import Optional
 from utils import is_str, compute_upper_count,  reverse_enumerate
 from utils import reversed_range, is_str, split_non_alpha
-from config import Config
 
 
 def _partition_non_alnum_edges(word: str):
-
     leading = []
     trailing = []
     for ch in word:
@@ -30,14 +28,6 @@ def _partition_non_alnum_edges(word: str):
     return leading_str, word, trailing_str
 
 
-def is_valid_chip_str(s: str, config: Config):
-    return valid_chip(FrozenDict.from_string(s), config)
-
-
-def valid_chip(freq: FrozenDict, config: Config):
-    return freq in config.chips.keys()
-
-
 def _update_captlization(word, upper_count: int):
     """updates the captlization based on upper_count, 1 = catplize, 1>uppercase, else no change"""
     if not is_str(word):
@@ -49,45 +39,40 @@ def _update_captlization(word, upper_count: int):
     return word
 
 
-def get_chip_result(word: str, config: Config) -> list[str] | str | None:
-    chip_map = config.chips
-    char_frequency = FrozenDict.from_string(word)
+def get_chip_result(word: str, config_wrapper: ConfigWrapper) -> list[str] | str | None:
+    chip = config_wrapper.get_chip_from_str(word)
 
-    if valid_chip(char_frequency, config):
-        return chip_map[char_frequency]
+    if chip is not None:
+        return chip
 
     def is_upper(ch): return ch.isupper()
     upper_count = count_where(is_upper, word)
     word = word.lower()
-    char_frequency = FrozenDict.from_string(word)
-    is_valid_chip = valid_chip(char_frequency, config)
-    if is_valid_chip:
-        chip = chip_map[char_frequency]
+
+    chip = config_wrapper.get_chip_from_str(word)
+    if chip is not None:
         return _update_captlization(chip, upper_count)
 
     leading, w, trailing = _partition_non_alnum_edges(word)
-    char_frequency = FrozenDict.from_string(w)
 
     # we check if it's a str because if it is a list we don't handle ignoring leading and trailing
     # and if it got to this point we know it wasn't an exact match for a command chip
-    is_valid_chip = valid_chip(char_frequency, config) and is_str(
-        chip_map[char_frequency])
-    if is_valid_chip:
-        chip = chip_map[char_frequency]
+    chip = config_wrapper.get_chip_from_str(w)
+    if isinstance(chip, str):
         return leading+_update_captlization(chip, upper_count)+trailing
 
     return None
 
 
-def _expand(word: str, config: Config) -> str | list[str]:
-    out = get_chip_result(word, config)
+def _expand(word: str, config_wrapper: ConfigWrapper) -> str | list[str]:
+    out = get_chip_result(word, config_wrapper)
     if out is None:
         out = word
     return out
 
 
-def _expand_str_only(word: str, config: Config) -> str:
-    out = get_chip_result(word, config)
+def _expand_str_only(word: str, config_wrapper: ConfigWrapper) -> str:
+    out = get_chip_result(word, config_wrapper)
     if not isinstance(out, str):
         out = word
     return out
@@ -114,7 +99,7 @@ def starts_with_alnum(s: str):
     return is_not_empty_str(s) and s[0].isalnum()
 
 
-def expand_snake_and_upper_snake_case(left_part: str, right_part: str, casing: Casing, config: Config, force_prepend="", remove_trailing=True) -> tuple[list[str], int]:
+def expand_snake_and_upper_snake_case(left_part: str, right_part: str, casing: Casing, config: ConfigWrapper, force_prepend="", remove_trailing=True, space_on_no_change=True) -> tuple[list[str], int]:
     trail_count = 0
     for ch in reversed(left_part):
         early_exit = False
@@ -132,7 +117,7 @@ def expand_snake_and_upper_snake_case(left_part: str, right_part: str, casing: C
     if remove_trailing and trail_count == 1:
         return [" "], 1
     elif trail_count >= 1:
-        if config.code.space_on_new:
+        if space_on_no_change:
             return [" "], 0
         else:
             return [], 0
@@ -165,7 +150,7 @@ def expand_snake_and_upper_snake_case(left_part: str, right_part: str, casing: C
     return list(out), len(to_expand)
 
 
-def expand_cammel_and_proper_case(left_part: str, right_part: str, config: Config, force_proper=False, space_on_no_change=True) -> tuple[list[str], int]:
+def expand_cammel_and_proper_case(left_part: str, right_part: str, config: ConfigWrapper, force_proper=False, space_on_no_change=True) -> tuple[list[str], int]:
     """
     returns to write, the amount to backspace, and if the expansion output was a list.
     """
@@ -268,19 +253,20 @@ def shift_press_release(word: str, trailing_white_space: str) -> tuple[int, str]
     return len(word), word
 
 
-def expand_code_casing(left_part: str, right_part: str, casing: Casing, config: Config) -> tuple[Optional[list[str]], int]:
+def expand_code_casing(left_part: str, right_part: str, casing: Casing, config: ConfigWrapper) -> tuple[Optional[list[str]], int]:
     to_write, count = None, 0
+    space_on_no_change = config.get_space_on_new()
     if casing == Casing.SNAKE or casing == Casing.UPPER_SNAKE:
         to_write, count = expand_snake_and_upper_snake_case(
-            left_part, right_part, casing, config)
+            left_part, right_part, casing, config, space_on_no_change=space_on_no_change)
     elif casing == Casing.CAMEL or casing == Casing.PROPER:
         to_write, count = expand_cammel_and_proper_case(
-            left_part, right_part, config)
+            left_part, right_part, config, space_on_no_change=space_on_no_change)
 
     return to_write, count
 
 
-def _expand_last_chunk_and_join(parts: list[tuple[str, bool]], config: Config) -> str:
+def _expand_last_chunk_and_join(parts: list[tuple[str, bool]], config: ConfigWrapper) -> str:
     """
     will not expand if expands to list or hit a trailing non ignored separator character
      """
@@ -295,12 +281,15 @@ def _expand_last_chunk_and_join(parts: list[tuple[str, bool]], config: Config) -
     return "".join(reversed(out))
 
 
-def expand_chunking(left_part: str, new_chars: list[bool], config: Config) -> str:
+def expand_chunking(left_part: str, new_chars: list[bool], config: ConfigWrapper) -> str:
+    if config.get_chunking_type() == ChunkingType.NONE:
+        return left_part
+
     old_part = ""
-    if config.chunking.new_chunks_only:
+    if config.expand_new_chunks_only():
         old_part, left_part = split_new_part(left_part, new_chars)
     parts: list[tuple[str, bool]] = split_non_alpha(
-        left_part, config.chunking.chunking_ignore)
+        left_part, config.get_chunking_ignore())
 
     if len(parts) > 0 and ends_with_alnum(old_part):
         par, _ = parts[0]
@@ -308,7 +297,7 @@ def expand_chunking(left_part: str, new_chars: list[bool], config: Config) -> st
         parts = parts[1:]
 
     to_write = []
-    if config.chunking.chunking_type == ChunkingType.LAST:
+    if config.get_chunking_type() == ChunkingType.LAST:
         return old_part + _expand_last_chunk_and_join(parts, config)
     for part in parts:
         val, is_sep = part
@@ -349,7 +338,7 @@ def _starts_with_upper(s: str):
     return _safe_char_check(s, 0, str.isupper)
 
 
-def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_part: str, config: Config) -> tuple[Optional[list[str]], int]:
+def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_part: str, config: ConfigWrapper) -> tuple[Optional[list[str]], int]:
 
     if len(left_part) == 0 or len(white_space) > 1:
         return None, 0
@@ -359,7 +348,7 @@ def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_pa
 
     to_write, count = None, 0
 
-    assumed_casing = config.code.assumed_casing
+    assumed_casing = config.get_assumed_casing()
     casing = determine_code_casing(
         left_part, right_part, on_private_assume=assumed_casing)
     if casing == Casing.NORMAL:
@@ -378,12 +367,12 @@ def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_pa
 
     if casing == Casing.SNAKE or casing == Casing.UPPER_SNAKE:
 
-        force_prpend = ""
+        force_prepend = ""
         if _ends_with_alpha_numeric(old_part) and not new_part.startswith("_"):
-            force_prpend = "_"
+            force_prepend = "_"
 
         to_write, count = expand_snake_and_upper_snake_case(
-            new_part, right_part, casing, config, force_prpend, remove_trailing=False)
+            new_part, right_part, casing, config, force_prepend=force_prepend, remove_trailing=False, space_on_no_change=config.get_space_on_new())
 
     force_upper = _ends_with_alpha_numeric(
         old_part) or _starts_with_upper(right_part)
@@ -393,6 +382,6 @@ def expand_new(left_part: str, new_flags: list[bool], white_space: str, right_pa
 
     if casing == Casing.CAMEL:
         to_write, count = expand_cammel_and_proper_case(
-            new_part, right_part, config, force_proper=force_upper, space_on_no_change=config.code.space_on_new)
+            new_part, right_part, config, force_proper=force_upper, space_on_no_change=config.get_space_on_new())
 
     return to_write, count

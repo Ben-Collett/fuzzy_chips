@@ -66,6 +66,12 @@ def create_config() -> Config:
     return Config(data)
 
 
-def reload_config(config: Config) -> None:
-    data = _load_toml()
+def reload_config(config: Config, data: dict | None) -> None:
+    """
+    data will be used as the config map if set
+    else it will be read from the config.toml file if it exist
+    else the default values are used
+    """
+    if data is None:
+        data = _load_toml()
     config.update(data)

@@ -1,9 +1,8 @@
-from utils import compute_upper_count, reverse_enumerate, reversed_range,  split_non_alpha
+from utils import compute_upper_count, reverse_enumerate,   split_non_alpha
 from enum_utils import safe_enum_from_str
 from enum import Enum
 from collection_utils import no_overlap, ends_with_any, starts_with_alnum
 from collection_utils import ends_with_alnum, is_not_empty_str, starts_with_any
-from collection_utils import list_get_or_default
 from collection_utils import captlize_first_char, uncaptlize_first_char, start_overlap_length, last_char
 DASHES = {"\u002d",  # -
           "\u2010",  # hyphen

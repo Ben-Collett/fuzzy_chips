@@ -77,9 +77,9 @@ chunking_ignore = ["'", "_"]
 
 [rare]
 # these settings can be changed but rarely should
-# passes through the captlization modifier of the last word so if it is 'hi.' the next word will be captlized
+# passes through the captlization modifier of the last word so if it is 'hi.' the next word will be capitalized
 # where as 'hi' it will not
-captlize_passthrough = ["\"", "'", "`"]
+capitalize_passthrough = ["\"", "'", "`"]
 
 [code]
 # WARNING: these setting does nothing when not in normal casing mode.
@@ -173,7 +173,7 @@ at = "at"
 it = "it"
 in = "in"
 
-# I on it's own is always captlized(if your not doing coding/math)
+# I on it's own is always capitalized(if your not doing coding/math)
 i = "I"
 # abbreviations for speed, they can even be a single letter!
 d = "and"
@@ -294,4 +294,3 @@ wrl = "world"
 wul = "would"
 frm = "from"
 dif = "different"
-

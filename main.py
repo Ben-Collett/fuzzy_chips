@@ -1,7 +1,5 @@
-from config_utils import get_fuzzy_event_keyboard, get_fuzzy_event_button
 from fuzzy_events import FuzzyEvent
 from casing import Casing, convert_casing
-from keyboard import mouse
 from keyboard._mouse_event import ButtonEvent
 from spacing_type import SpacingType
 from collection_utils import captlize_word, count_where,  decrement_if_greater_than_zero, is_not_empty_str, decrement_if
@@ -9,23 +7,21 @@ from ipc_server import IPCServer
 from utils import down_modifiers, safe_len, to_utf, is_str, is_only_shift_or_no_modifiers
 from utils import backspaces_to_delete_previous_word
 from buffer import KeyBuffer
-from config import Config
 from expansion_utils import expand_chunking, get_chip_result, shift_press_release
-from expansion_utils import expand_code_casing, is_valid_chip_str, determine_code_casing
-from expansion_utils import expand_new
+from config_wrapper import ConfigWrapper
+from expansion_utils import expand_code_casing,  determine_code_casing, expand_new
 from utils import is_all_non_alphanumeric_str
-import keyboard
+from keyboard import KeyboardEvent, KEY_DOWN
 import signal
 from main_context import AppContext
 from commands import clear_buffer, activate_normal_casing_mode, terminate
 
 
 def mouse_button_loop(event):
+    # TODO: figure out expand
     if not isinstance(event, ButtonEvent):
         return
-    events = get_fuzzy_event_button(
-        event, AppContext.get_current().config)
-
+    events = AppContext.get_current().config_wrapper.get_fuzzy_event_button(event)
     regular_clear = FuzzyEvent.clear_buffer.value in events
     safe_clear = FuzzyEvent.clear_buffer_ipc_safe.value in events
     if handle_clear(regular_clear, safe_clear):
@@ -46,38 +42,17 @@ def move_last(source: KeyBuffer, target: KeyBuffer):
         target.add_entry(source.backspace_entry())
 
 
-def set_buffer(args, buffer):
-    ctx = AppContext.get_current()
-    ctx.just_set.set()
-
-    if not buffer.is_equal(args):
-        buffer.set_buffer(args, recent=False)
-
-
-def set_main_buffer(args: list[str]):
-    set_buffer(args, AppContext.get_current()._buffer)
-
-
-def set_buffer_right(args: list[str]):
-    set_buffer(args[::-1], AppContext.get_current().right_arrow_buffer)
-
-
 def write(text: str | list[str]):
     ctx = AppContext.get_current()
-    if is_str(text) and len(text) > 0:
-        keyboard.write(text)
+    if len(text) > 0 and isinstance(text, str):
+        ctx.keyboard.write(text)
     else:
         for key in text:
             command = key.split(" ")[0]
             if ctx.command_processor.has_command(command):
                 ctx.command_processor.process(key)
             else:
-                keyboard.write_list([key])
-
-
-def backspace(n_times):
-    for _ in range(0, n_times):
-        keyboard.press_and_release("backspace")
+                ctx.keyboard.write_list([key])
 
 
 def decrement_expected_counter():
@@ -106,7 +81,7 @@ def backspace_then_write(backspace_count, to_write, update_expected=True):
         else:
             ctx.expected_counter = backspace_count + \
                 _non_command_count(to_write)
-    backspace(backspace_count)
+    ctx.keyboard.backspace(backspace_count)
     write(to_write)
 
 
@@ -130,12 +105,10 @@ def delete_previous_word(backspace_offset: int = 0):
     backspace_then_write(back_count, to_write, update_expected=True)
 
 
-def handle_auto_append(event, config: Config):
+def handle_auto_append(event, config: ConfigWrapper):
     name = event.name
-    auto_append = config.general.auto_append
-    append_chars = config.general.append_chars
     ctx = AppContext.get_current()
-    if auto_append and name in append_chars:
+    if config.should_auto_append(name):
         leading_whitespace = ctx._buffer.get_trailing_white_space()
         if len(leading_whitespace) > 0:
             ctx._buffer.add(name)
@@ -165,7 +138,7 @@ def handle_clear(regular_clear: bool, safe_clear: bool):
         should_clear = True
 
     if should_clear:
-        clear_buffer([])
+        clear_buffer()
         return True
     return False
 
@@ -204,9 +177,9 @@ def handle_new_space(
     white_space: str,
     new_flags: list[bool],
     trigger_utf: str | None,
-    config: Config,
+    config: ConfigWrapper,
 ) -> bool:
-    if config.code.spacing_type != SpacingType.NEW:
+    if config.get_code_spacing_type() != SpacingType.NEW:
         return False
     to_write, back_count = expand_new(
         left_part, new_flags, white_space, right_part, config
@@ -227,14 +200,15 @@ def get_right_word() -> str:
     return ""
 
 
-def handle_code_spacing(left_part: str, right_part: str, white_space: str, config: Config) -> bool:
+def handle_code_spacing(left_part: str, right_part: str, white_space: str, config: ConfigWrapper) -> bool:
 
-    if config.code.spacing_type != SpacingType.CODE:
+    if config.get_code_spacing_type() != SpacingType.CODE:
         return False
+
     if len(white_space) > 1:
         left_part = ""
 
-    if right_part == "" and is_valid_chip_str(left_part, config):
+    if right_part == "" and config.str_is_chip(left_part):
         return False
 
     casing = determine_code_casing(left_part, right_part)
@@ -248,13 +222,13 @@ def handle_code_spacing(left_part: str, right_part: str, white_space: str, confi
     return False
 
 
-def captlize_if_needed(to_write, to_write_is_str, config: Config):
+def captlize_if_needed(to_write, to_write_is_str, config: ConfigWrapper):
     """
     something to consider right now hi. 12+abc would captlzie the A is that what a I want? Does it matter?
     """
     ctx = AppContext.get_current()
-    capitalize_after = config.general.capitalize_after
-    captlize_passthrough = config.rare.captlize_passthrough
+    capitalize_after = config.get_capitalize_after()
+    captlize_passthrough = config.get_capitalize_passthrough()
 
     should_capitalize = (
         ctx.current_casing.is_normal_casing
@@ -277,15 +251,15 @@ def escape_to_normal_casing(white_space: str, event_utf: str | None):
     if ctx.current_casing.is_not_normal_casing and white_space_length > 0:
         activate_normal_casing_mode([])
         if len(event_utf) == 1:
-            backspace(1)
+            ctx.keyboard.backspace()
         return True
     return False
 
 
-def handle_expand(config: Config, event_name_utf=""):
+def handle_expand(config: ConfigWrapper, event_name_utf=""):
     ctx = AppContext.get_current()
     buffer = ctx._buffer
-    append_chars = config.general.append_chars
+    append_chars = config.get_append_chars()
 
     white_space = ctx._buffer.get_trailing_white_space()
 
@@ -355,13 +329,14 @@ def handle_expand(config: Config, event_name_utf=""):
                              to_write, update_expected=True)
 
 
-def _process_event(event: keyboard.KeyboardEvent, config: Config):
+def _process_event(event: KeyboardEvent):
     ctx = AppContext.get_current()
+    config = ctx.config_wrapper
 
     down_mods = down_modifiers(event)
     if ctx.expected_counter == 0:
-        events = get_fuzzy_event_keyboard(
-            event, ctx.prev_real_event, down_mods, config)
+        events = config.get_fuzzy_event_keyboard(
+            event, ctx.prev_real_event, down_mods)
     else:
         events = []
 
@@ -370,12 +345,12 @@ def _process_event(event: keyboard.KeyboardEvent, config: Config):
     if handle_clear(regular_clear, safe_clear):
         return
 
-    if handle_auto_append(event, config):
-        return
-
     utf: str | None = None
-    is_pressed = event.event_type == keyboard.KEY_DOWN
+    is_pressed = event.event_type == KEY_DOWN
     if is_pressed:
+        if handle_auto_append(event, config):
+            return
+
         name = event.name
         assert name is not None
 
@@ -386,7 +361,7 @@ def _process_event(event: keyboard.KeyboardEvent, config: Config):
             move_last(source=ctx.right_arrow_buffer, target=ctx._buffer)
             decrement_expected_counter()
         elif name == "delete":
-            ctx.right_arrow_buffer.remove_first()
+            ctx.right_arrow_buffer.backspace()
             decrement_expected_counter()
         else:
             utf = to_utf(name)
@@ -417,14 +392,14 @@ def _process_event(event: keyboard.KeyboardEvent, config: Config):
         handle_expand(config, utf or "")
 
 
-def process_event_wrapper(event: keyboard.KeyboardEvent):
+def process_event_wrapper(event: KeyboardEvent):
     ctx = AppContext.get_current()
     should_update_new = (
         ctx.expected_counter == 0
         and event.name == "space"
-        and event.event_type == keyboard.KEY_DOWN
+        and event.event_type == KEY_DOWN
     )
-    _process_event(event, ctx.config)
+    _process_event(event)
     ctx.just_set.clear()
     if should_update_new:
         ctx._buffer.mark_recent_as_old()
@@ -436,11 +411,7 @@ def process_event_wrapper(event: keyboard.KeyboardEvent):
 def main():
     ctx = AppContext.initialize()
 
-    keyboard.init(
-        linux_collision_safety_mode=keyboard.LinuxCollisionSafetyModes.PATIENT
-    )
-
-    ipc_server = IPCServer(ctx.command_processor, ctx.config)
+    ipc_server = IPCServer(ctx.command_processor, ctx.config_wrapper)
     ipc_server.start()
 
     def sigint_handler(*_):
@@ -448,8 +419,8 @@ def main():
 
     original_handler = signal.signal(signal.SIGINT, sigint_handler)
 
-    keyboard.hook(process_event_wrapper)
-    mouse.hook(mouse_button_loop)
+    ctx.keyboard.hook(process_event_wrapper)
+    ctx.mouse.hook(mouse_button_loop)
     try:
         ctx.stop_event.wait()
     except KeyboardInterrupt:

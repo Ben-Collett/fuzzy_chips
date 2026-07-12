@@ -2,10 +2,11 @@ import threading
 from typing import TYPE_CHECKING
 from buffer import KeyBuffer
 from casing import Casing
+from config_wrapper import ConfigWrapper
+from mouse import Mouse
 from command_processor import CommandProcessor
-from config_utils import create_config
 from keyboard import KeyboardEvent
-from config import Config
+from my_keyboard import Keyboard
 
 if TYPE_CHECKING:
     from main import AppContext
@@ -23,9 +24,10 @@ class AppContext:
         self.just_set: threading.Event = threading.Event()
         self.prev_real_event: KeyboardEvent | None = None
         self.command_processor: CommandProcessor = None  # type: ignore
+        self.keyboard: Keyboard = None  # type: ignore
+        self.mouse: Mouse = None  # type: ignore
         self.ipc_enabled: list = []
-
-        self.config: Config = None  # type: ignore
+        self.config_wrapper: ConfigWrapper = None  # type: ignore
 
     @classmethod
     def get_current(cls) -> "AppContext":
@@ -37,12 +39,19 @@ class AppContext:
         self._buffer.update_capacity(size)
         self.right_arrow_buffer.update_capacity(size)
 
+    def reload_config(self):
+        self.config_wrapper.reload_config()
+        self.resize_buffers(self.config_wrapper.get_buffer_size())
+
     @classmethod
-    def initialize(cls) -> "AppContext":
-        ctx = cls()
+    def initialize(cls, ctx: "AppContext | None" = None) -> "AppContext":
+        if ctx is None:
+            ctx = cls()
+            ctx.config_wrapper = ConfigWrapper.load()
+            ctx.keyboard = Keyboard()
+            ctx.mouse = Mouse()
         cls._current = ctx
-        ctx.config = create_config()
-        ctx.resize_buffers(ctx.config.general.buffer_size)
+        ctx.resize_buffers(ctx.config_wrapper.get_buffer_size())
         ctx.command_processor = cls._make_processor(ctx)
         cls._update_ipc_enabled(ctx)
         return ctx
@@ -57,7 +66,7 @@ class AppContext:
     @staticmethod
     def _update_ipc_enabled(ctx: "AppContext"):
         ctx.command_processor.ipc_commands.clear()
-        ctx.ipc_enabled = list(ctx.config.ipc.ipc_enabled_commands)
+        ctx.ipc_enabled = list(ctx.config_wrapper.get_ipc_enabled_commands())
         for command in ctx.command_processor._commands.keys():
             if command in ctx.ipc_enabled:
                 ctx.command_processor.ipc_commands.add(command)

@@ -88,6 +88,7 @@ class TestKeyBuffer:
         buf = KeyBuffer(5)
         buf.add("x", recent=False)
         entry = buf.backspace_entry()
+        assert entry is not None
         assert entry.char == "x"
         assert entry.recent is False
 
@@ -95,17 +96,6 @@ class TestKeyBuffer:
         buf = KeyBuffer(5)
         assert buf.backspace() is None
         assert buf.backspace_entry() is None
-
-    def test_remove_first(self):
-        buf = KeyBuffer(5)
-        buf.add_all("abc")
-        buf.remove_first()
-        assert buf.get() == ["b", "c"]
-
-    def test_remove_first_empty(self):
-        buf = KeyBuffer(5)
-        buf.remove_first()
-        assert buf.is_empty()
 
     def test_mark_recent_as_old(self):
         buf = KeyBuffer(5)
@@ -239,6 +229,7 @@ class TestShouldCaptilizePrevWord:
         buf = KeyBuffer(20)
         buf.set_buffer("hello ( world")
         assert (
-            buf.should_captlize_prev_word(captilize_after=["."], pass_through=["("])
+            buf.should_captlize_prev_word(
+                captilize_after=["."], pass_through=["("])
             is False
         )

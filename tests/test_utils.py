@@ -1,5 +1,5 @@
 import pytest
-from keyboard._keyboard_event import KeyboardEvent, KEY_DOWN
+from keyboard import KeyboardEvent, KEY_DOWN
 from utils import (
     compute_upper_count,
     is_str,

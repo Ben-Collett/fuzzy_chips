@@ -39,10 +39,6 @@ class KeyBuffer:
         for i, entry in enumerate(self.buffer):
             self.buffer[i] = BufferEntry(entry.char, recent=False)
 
-    def remove_first(self):
-        if not self.is_empty():
-            self.buffer.popleft()
-
     def is_equal(self, items):
         return self.get() == list(items)
 
