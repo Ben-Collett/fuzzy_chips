@@ -41,6 +41,8 @@ class AppContext:
 
     def reload_config(self):
         self.config_wrapper.reload_config()
+        self.keyboard.update_keyboard(
+            self.config_wrapper.linux_keyboard_type())
         self.resize_buffers(self.config_wrapper.get_buffer_size())
 
     @classmethod
@@ -48,7 +50,7 @@ class AppContext:
         if ctx is None:
             ctx = cls()
             ctx.config_wrapper = ConfigWrapper.load()
-            ctx.keyboard = Keyboard()
+            ctx.keyboard = Keyboard(ctx.config_wrapper.linux_keyboard_type())
             ctx.mouse = Mouse()
         cls._current = ctx
         ctx.resize_buffers(ctx.config_wrapper.get_buffer_size())

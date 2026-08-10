@@ -5,6 +5,7 @@ from casing import Casing
 from chunking import ChunkingType
 from config_support import load_chips
 from fuzzy_events import parse_on_press, parse_on_toggle, parse_while_down, parse_on_mouse_button_down
+from linux_keyboard import LinuxKeyboardType
 
 class _ExpectedField:
     def __init__(self, default_value=None, cftype=None):
@@ -108,7 +109,7 @@ def _merge_expected(config_map: dict, expected_map: dict, ignored_sections=set()
     return result
 
 def _get_expected_map():
-    return {"general": {"capitalize_after": _ExpectedList([".", "!", "?"]), "append_chars": _ExpectedList([".", "!", "?", ",", ";", ")", "]", "}"]), "auto_append": _ExpectedField(False, bool), "buffer_size": _ExpectedField(500, int)}, "chunking": {"chunking_type": _ExpectedField("last", str), "new_chunks_only": _ExpectedField(False, bool), "chunking_ignore": _ExpectedList(["'", "_"])}, "rare": {"capitalize_passthrough": _ExpectedList(["\"", "'", "`"])}, "code": {"spacing_type": _ExpectedField("normal", str), "assumed_casing": _ExpectedField("normal", str), "space_on_new": _ExpectedField(True, bool)}, "ipc": {"port": _ExpectedField(8765, int), "host": _ExpectedField("127.0.0.1", str), "ipc_enabled_commands": _ExpectedList([], str)}}
+    return {"general": {"capitalize_after": _ExpectedList([".", "!", "?"]), "append_chars": _ExpectedList([".", "!", "?", ",", ";", ")", "]", "}"]), "auto_append": _ExpectedField(False, bool), "buffer_size": _ExpectedField(500, int)}, "linux": {"keyboard_type": _ExpectedField("patient", str)}, "chunking": {"chunking_type": _ExpectedField("last", str), "new_chunks_only": _ExpectedField(False, bool), "chunking_ignore": _ExpectedList(["'", "_"])}, "rare": {"capitalize_passthrough": _ExpectedList(["\"", "'", "`"])}, "code": {"spacing_type": _ExpectedField("normal", str), "assumed_casing": _ExpectedField("normal", str), "space_on_new": _ExpectedField(True, bool)}, "ipc": {"port": _ExpectedField(8765, int), "host": _ExpectedField("127.0.0.1", str), "ipc_enabled_commands": _ExpectedList([], str)}}
 
 class Config:
     def __init__(self, config_map: dict | None = None):
@@ -116,9 +117,10 @@ class Config:
             config_map = {}
         merged = _merge_expected(
             config_map, _get_expected_map()
-            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'on_press', 'while_down', 'on_toggle', 'chips', 'on_mouse_button_down'}
+            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'while_down', 'chips', 'on_press', 'on_mouse_button_down', 'on_toggle'}
         )
         self.general = GeneralSection(merged["general"])
+        self.linux = LinuxSection(merged["linux"])
         self.chunking = ChunkingSection(merged["chunking"])
         self.rare = RareSection(merged["rare"])
         self.code = CodeSection(merged["code"])
@@ -134,9 +136,10 @@ class Config:
             config_map = {}
         merged = _merge_expected(
             config_map, _get_expected_map()
-            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'on_press', 'while_down', 'on_toggle', 'chips', 'on_mouse_button_down'}
+            , ignored_keys=['shift+backspace', "'s", "n't", "'l", '-', 't,', "w'"], ignored_sections={'while_down', 'chips', 'on_press', 'on_mouse_button_down', 'on_toggle'}
         )
         self.general.update(merged["general"])
+        self.linux.update(merged["linux"])
         self.chunking.update(merged["chunking"])
         self.rare.update(merged["rare"])
         self.code.update(merged["code"])
@@ -156,6 +159,13 @@ class GeneralSection:
         self.append_chars: list = smap["append_chars"]
         self.auto_append: bool = smap["auto_append"]
         self.buffer_size: int = smap["buffer_size"]
+
+class LinuxSection:
+    def __init__(self, smap: dict):
+        self.update(smap)
+
+    def update(self, smap: dict):
+        self.keyboard_type: LinuxKeyboardType = LinuxKeyboardType.safe_from_str(smap["keyboard_type"], LinuxKeyboardType.PATIENT)
 
 class ChunkingSection:
     def __init__(self, smap: dict):

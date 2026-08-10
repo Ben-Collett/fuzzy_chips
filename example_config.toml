@@ -19,6 +19,20 @@ auto_append = false
 # but if you do that and never clear the buffer it is a memory leak
 buffer_size = 500
 
+# values that only affect linux
+[linux]
+# there are three keyboard_types on linux they affect how fuzzychips handles your physical keyboard(or any other virtual keyboard I suppose).
+# 'patient' is the default mode and it will wait for your to release a key on your physical keyboard before trying to type that character.
+# 'none' does not do this and as such if you hold down a character while the virtual keyboard tries to type it it won't be able to do so 
+# as linux only allows one instance of a key to be down at once if it is not grabbed by another process
+# 'grab' mode grabs exclusive access to your keyboard, that is no other program sees your key inputs, it then propagates the key events to other programs thus letting fuzzy chips not have to wait on you releasing your keys to type.
+
+# GRAB WARNING: if you hold down a key and start in grab mode before releasing the key then currently that key will get stuck in the down position until you terminate fuzzy chips
+# I need to do some work in the keyboard module to solve that and probably load the keyboard's initial state and wait until the user releases all keys to grab it.
+# GRAB WARNING: if you have another program that grabs all your keyboards running like keyd by default does then you will get into a situation where keyd grabs fuzzychips keyboard and fuzzy chip grabs keyd's then no program can read there key inputs.
+# NOTE: if not using grab mode led's on linux may turn off when expanding and back on when you type atleast they do on my computer I am working on a way to solve that as well.
+keyboard_type = "patient"
+
 # the following 4 sections define allow you to define actions based on certain keyboarnd and mouse conditions.
 # NOTE: in toml any key that has a special symbol like a + needs to be in quotes
 # these are the available commands: clear_buffer, clear_buffer_ipc_safe, delete_word, toggle_casing, expand

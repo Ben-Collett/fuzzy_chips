@@ -1,11 +1,13 @@
 from typing import override
-from mouse import Mouse
-from config_wrapper import ConfigWrapper
-from config import Config
-from my_keyboard import Keyboard
-from main_context import AppContext
-from keyboard._mouse_event import ButtonEvent, LEFT, DOWN, UP
+
 from testing_utils import make_down_up_events
+
+from config import Config
+from config_wrapper import ConfigWrapper
+from keyboard._mouse_event import DOWN, LEFT, UP, ButtonEvent
+from main_context import AppContext
+from mouse import Mouse
+from my_keyboard import Keyboard
 
 
 class KeyboardMock(Keyboard):
@@ -14,6 +16,12 @@ class KeyboardMock(Keyboard):
         self.events_to_run = []
         self.priority_events = []
         self.written_event_names: list[str] = []
+
+    def grabbed(self):
+        return False
+
+    def update_keyboard(self, t):
+        pass
 
     def flush_events_to_run(self):
         while self.events_to_run or self.priority_events:

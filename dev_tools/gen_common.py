@@ -16,12 +16,16 @@ def make_builder() -> Builder:
 
     chunking_type = GenCustom(
         parse_command='ChunkingType.safe_from_str($value, ChunkingType.LAST)', config_value=GenStr("last"), code_type="ChunkingType")
+
+    linux_keyboard_type = GenCustom(
+        parse_command='LinuxKeyboardType.safe_from_str($value, LinuxKeyboardType.PATIENT)', config_value=GenStr("patient"), code_type="LinuxKeyboardType")
     import_statements = [
         "from spacing_type import SpacingType",
         "from casing import Casing",
         "from chunking import ChunkingType",
         "from config_support import load_chips",
         "from fuzzy_events import parse_on_press, parse_on_toggle, parse_while_down, parse_on_mouse_button_down",
+        "from linux_keyboard import LinuxKeyboardType",
 
     ]
     # Initialize builder with TOML formatting settings matching the example
@@ -69,6 +73,28 @@ def make_builder() -> Builder:
     builder.comment(
         " but if you do that and never clear the buffer it is a memory leak")
     builder.add_int("buffer_size", 500)
+    builder.new_line()
+
+    builder.comment(" values that only affect linux")
+    builder.add_section("linux")
+    builder.comment(
+        " there are three keyboard_types on linux they affect how fuzzychips handles your physical keyboard(or any other virtual keyboard I suppose).")
+    builder.comment(
+        " 'patient' is the default mode and it will wait for your to release a key on your physical keyboard before trying to type that character.")
+    builder.comment(
+        " 'none' does not do this and as such if you hold down a character while the virtual keyboard tries to type it it won't be able to do so ")
+    builder.comment(
+        " as linux only allows one instance of a key to be down at once if it is not grabbed by another process")
+    builder.comment(" 'grab' mode grabs exclusive access to your keyboard, that is no other program sees your key inputs, it then propagates the key events to other programs thus letting fuzzy chips not have to wait on you releasing your keys to type.")
+    builder.new_line()
+    builder.comment(
+        " GRAB WARNING: if you hold down a key and start in grab mode before releasing the key then currently that key will get stuck in the down position until you terminate fuzzy chips")
+    builder.comment(" I need to do some work in the keyboard module to solve that and probably load the keyboard's initial state and wait until the user releases all keys to grab it.")
+    builder.comment(
+        " GRAB WARNING: if you have another program that grabs all your keyboards running like keyd by default does then you will get into a situation where keyd grabs fuzzychips keyboard and fuzzy chip grabs keyd's then no program can read there key inputs.")
+    builder.comment(
+        " NOTE: if not using grab mode led's on linux may turn off when expanding and back on when you type atleast they do on my computer I am working on a way to solve that as well.")
+    builder.add_field("keyboard_type", linux_keyboard_type)
     builder.new_line()
 
     builder.comment(

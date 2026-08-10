@@ -4,6 +4,7 @@ from frozen_dict import FrozenDict
 from fuzzy_events import FuzzyEvent
 from keyboard.mouse import ButtonEvent
 from keyboard import KeyboardEvent
+from linux_keyboard import LinuxKeyboardType
 from spacing_type import SpacingType
 
 
@@ -42,6 +43,9 @@ class ConfigWrapper:
 
     def get_host(self) -> str:
         return self._config.ipc.host
+
+    def linux_keyboard_type(self) -> LinuxKeyboardType:
+        return self._config.linux.keyboard_type
 
     def get_code_spacing_type(self) -> SpacingType:
         return self._config.code.spacing_type

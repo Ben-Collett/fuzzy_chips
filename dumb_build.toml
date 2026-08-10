@@ -1,0 +1,17 @@
+[build]
+executable_name = "fuzzy_chips"
+command = "python $dumb_project_dir/main.py"
+excluded = [
+  ".gitignore",
+  "__pycache__",
+  "keyboard/__pycache__",
+  ".ruff_cache",
+  "dumb_build.toml",
+  "test/",
+  "dev_tools/",
+  ".pytest_cache",
+  "LICENSE",
+  "/vendord_licenses",
+  "README.md",
+]
+local_install_excluded = [".git"]

@@ -128,8 +128,8 @@ def build_tables():
             if is_keypad:
                 keypad_scan_codes.add(scan_code)
                 register_key((scan_code, modifiers), "keypad " + name)
-            elif name.islower() and len(name)==1:
-                register_key((scan_code,("shift",)), name.upper())
+            elif name.islower() and len(name) == 1:
+                register_key((scan_code, ("shift",)), name.upper())
 
     # dumpkeys consistently misreports the Windows key, sometimes
     # skipping it completely or reporting as 'alt. 125 = left win,
@@ -196,12 +196,14 @@ def ungrab():
     return False
 
 
-def is_grabbed()->bool:
+def is_grabbed() -> bool:
     """Release exclusive access to all physical keyboards."""
     global _device
     if isinstance(_device, AggregatedEventDevice):
         return _device.grabbed
     return False
+
+
 pressed_modifiers = set()
 _keys_cond = Condition()
 
@@ -255,22 +257,23 @@ def listen(callback):
         )
 
 
-
 def _shift_changes(scan_code):
-    normal_version = scan_code_and_mods_to_name[(scan_code,())]
-    shifted_version  = scan_code_and_mods_to_name[(scan_code,("shift",))]
+    normal_version = scan_code_and_mods_to_name[(scan_code, ())]
+    shifted_version = scan_code_and_mods_to_name[(scan_code, ("shift",))]
     return shifted_version != [] and normal_version != shifted_version
+
+
+def is_down_key(code):
+    return code in _down_keys
+
 
 def _write_event(scan_code, is_down, name: str, should_be_shifted: bool = False):
     build_device(name)
-    if is_down and patient_type:
+    names = scan_code_and_mods_to_name.get((scan_code, ()), [])
+    is_shift = any("shift" in name for name in names)
+    if is_down and patient_type and not is_shift:
         with _keys_cond:
-            # TODO: fix this
-            # there is an edge case here, if the user holds shift then shift is in the _down_keys
-            # then it will still loop because the scancode is in _down keys
-            # meaning I need to find a way that handles that but still represses shift if the user releases it
-            # so when writing Dhello it will wait for shift to be released before it starts uncessarly
-            while scan_code in _down_keys or (not should_be_shifted and _shift_changes(scan_code) and "shift" in pressed_modifiers):
+            while is_down_key(scan_code) or (not should_be_shifted and _shift_changes(scan_code) and "shift" in pressed_modifiers):
                 _keys_cond.wait()
     _device.write_event(EV_KEY, scan_code, int(is_down))
 
