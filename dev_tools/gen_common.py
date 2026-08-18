@@ -88,12 +88,11 @@ def make_builder() -> Builder:
     builder.comment(" 'grab' mode grabs exclusive access to your keyboard, that is no other program sees your key inputs, it then propagates the key events to other programs thus letting fuzzy chips not have to wait on you releasing your keys to type.")
     builder.new_line()
     builder.comment(
-        " GRAB WARNING: if you hold down a key and start in grab mode before releasing the key then currently that key will get stuck in the down position until you terminate fuzzy chips")
-    builder.comment(" I need to do some work in the keyboard module to solve that and probably load the keyboard's initial state and wait until the user releases all keys to grab it.")
-    builder.comment(
         " GRAB WARNING: if you have another program that grabs all your keyboards running like keyd by default does then you will get into a situation where keyd grabs fuzzychips keyboard and fuzzy chip grabs keyd's then no program can read there key inputs.")
     builder.comment(
         " NOTE: if not using grab mode led's on linux may turn off when expanding and back on when you type atleast they do on my computer I am working on a way to solve that as well.")
+
+    builder.comment(" NOTE: if you are using a charachorder and shift while expanding to captlize the first letter of a chord. Then it is best to use patient mode because the program will end up captlizing the second letter if you don't.")
     builder.add_field("keyboard_type", linux_keyboard_type)
     builder.new_line()
 

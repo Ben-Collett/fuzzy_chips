@@ -8,10 +8,6 @@ from ._keyboard_event import KeyboardEvent, KEY_DOWN, KEY_UP
 from ._canonical_names import all_modifiers, normalize_name
 from ._nixcommon import EV_KEY, aggregate_devices, AggregatedEventDevice
 
-# TODO: start by reading current keyboard state, as to not missing any already pressed keys.
-# See: http://stackoverflow.com/questions/3649874/how-to-get-keyboard-state-in-linux
-
-
 # will wait until a key is realesed on hardware keyboard before attempting to write
 patient_type = False
 
@@ -176,7 +172,7 @@ def init():
     global _down_keys
     build_device(global_data.device_name)
     build_tables()
-    _down_keys = dict()
+    _down_keys = set()
 
 
 def grab():
@@ -209,9 +205,19 @@ _keys_cond = Condition()
 
 
 def listen(callback):
+    global pressed_modifiers
     build_device(global_data.device_name)
     build_tables()
 
+    # technically I could query this each time in the loop instead of keeping track but I'm not
+    # sure how perfromant that would be
+    _down_keys = _device.keys_down()
+    pressed_modifiers = {
+        name
+        for scan_code in _down_keys
+        for name in scan_code_and_mods_to_name[(scan_code, ())]
+        if name in all_modifiers
+    }
     while True:
         time, type, code, value, device_path, device_name = _device.read_event()
 
@@ -237,10 +243,10 @@ def listen(callback):
         is_keypad = scan_code in keypad_scan_codes
 
         if event_type == KEY_DOWN:
-            _down_keys[scan_code] = True
+            _down_keys.add(scan_code)
         else:
             if scan_code in _down_keys:
-                del _down_keys[scan_code]
+                _down_keys.discard(scan_code)
                 with _keys_cond:
                     _keys_cond.notify_all()
         callback(
