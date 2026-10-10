@@ -471,15 +471,6 @@ def init(
     if _initialized:
         raise Exception("double init call")
 
-    from ._nixutils import MAX_NAME_LENGTH
-
-    if len(device_name) > MAX_NAME_LENGTH:
-        raise ValueError(
-            f"device_name is too long. Maximum length is {
-                MAX_NAME_LENGTH} characters."
-        )
-
-    _global_data.device_name = device_name
     if keyboard_mode is not None:
         _keyboard_mode = keyboard_mode
     else:
@@ -490,6 +481,15 @@ def init(
 
         keyboard.synthetic_mode = windows_synetic_mode
     elif _keyboard_mode == KeyboardModes.LINUX:
+
+        from ._nixutils import MAX_NAME_LENGTH
+        if len(device_name) > MAX_NAME_LENGTH:
+            raise ValueError(
+                f"device_name is too long. Maximum length is {
+                    MAX_NAME_LENGTH} characters."
+            )
+
+        _global_data.device_name = device_name
         from . import _nixkeyboard as keyboard
     elif _keyboard_mode == KeyboardModes.X11:
         from . import _x11keyboard as keyboard

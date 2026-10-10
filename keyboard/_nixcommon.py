@@ -6,6 +6,7 @@ import os
 import fcntl
 import signal
 import atexit
+import threading
 from ._nixlibudev import set_up_libudev, create_udev_monitor, monitor_on_add
 from time import time as now
 from time import sleep
@@ -174,9 +175,28 @@ class EventDevice(object):
         fcntl.ioctl(fd, EVIOCGRAB, 0)
 
 
-def device_reader_worker(device_paths, event_queue, command_queue, response_queue, virtual_name):
+def _get_devices(type_name) -> list[str]:
+    # We don't aggregate devices from different sources to avoid
+    # duplicates.
+
+    devices_from_proc = list(list_devices_from_proc(type_name))
+    if devices_from_proc:
+        return devices_from_proc
+
+    # breaks on mouse for virtualbox
+    # was getting /dev/input/by-id/usb-VirtualBox_USB_Tablet-event-mouse
+    devices_from_by_id = list(list_devices_from_by_id(type_name)) or list(
+        list_devices_from_by_id(type_name, by_id=False)
+    )
+    if devices_from_by_id:
+        return devices_from_by_id
+    return []
+
+
+def device_reader_worker(type_name, event_queue, command_queue, response_queue, virtual_name):
     signal.signal(signal.SIGINT, signal.SIG_IGN)
-    devices = [EventDevice(p) for p in device_paths]
+    devices_lock = threading.Lock()
+    devices = []
 
     # Track grabbed devices - use mutable containers for thread sharing
     grabbed_devices = set()
@@ -231,14 +251,26 @@ def device_reader_worker(device_paths, event_queue, command_queue, response_queu
             try:
                 event_queue.put(device.read_event(), block=True)
             except OSError:
+                devices_lock.acquire()
+                devices.remove(device)
+                devices_lock.release()
                 break
 
-    for d in devices:
-        Thread(target=read_loop, args=(d,), daemon=True).start()
-
     def add_device(path):
+        devices_lock.acquire()
+        # potential for optimization but this function isn't called often.
+        device_paths = []
+        for device in devices:
+            device_paths.append(device.path)
+
+        if path in device_paths:
+            devices_lock.release()
+            return
+
         device = EventDevice(path)
         devices.append(device)
+        devices_lock.release()
+
         Thread(target=read_loop, args=(device,), daemon=True).start()
         if is_grabbed[0]:
             grab_device(device)
@@ -279,15 +311,20 @@ def device_reader_worker(device_paths, event_queue, command_queue, response_queu
             except OSError:
                 break
 
-    # Start command listener thread
-    Thread(target=command_listener, daemon=True).start()
-
-    if _lib_udev:
+    def monitor():
         try:
             udev, mon, fd = create_udev_monitor(_lib_udev)
             monitor_on_add(_lib_udev, mon, add_device)
         except BaseException:
             pass
+    # Start command listener thread
+    Thread(target=command_listener, daemon=True).start()
+
+    if _lib_udev:
+        Thread(target=monitor)
+    device_paths = _get_devices(type_name)
+    for path in device_paths:
+        add_device(path)
 
     # only should be reached if monitor fails
     while True:
@@ -295,7 +332,7 @@ def device_reader_worker(device_paths, event_queue, command_queue, response_queu
 
 
 class AggregatedEventDevice:
-    def __init__(self, devices, output=None, virtual_name=None):
+    def __init__(self, type_name, output=None, virtual_name=None):
         self.event_queue = Queue()
         self.command_queue = Queue()  # For sending grab/ungrab commands
         self.response_queue = Queue()  # For receiving key state replies
@@ -303,11 +340,10 @@ class AggregatedEventDevice:
 
         self.output = output  # stays in parent only
         self.grabbed = False
-        paths = [d.path for d in devices]
 
         self.process = Process(
             target=device_reader_worker,
-            args=(paths, self.event_queue, self.command_queue,
+            args=(type_name, self.event_queue, self.command_queue,
                   self.response_queue, virtual_name),
             daemon=True,
         )
@@ -366,7 +402,7 @@ def list_devices_from_proc(type_name):
     for name, handlers in re.findall(device_pattern, description, re.DOTALL):
         path = "/dev/input/event" + re.search(r"event(\d+)", handlers).group(1)
         if type_name in handlers:
-            yield EventDevice(path)
+            yield path
 
 
 def list_devices_from_by_id(name_suffix, by_id=True):
@@ -374,7 +410,7 @@ def list_devices_from_by_id(name_suffix, by_id=True):
         "/dev/input/{}/*-event-{}".format(
             "by-id" if by_id else "by-path", name_suffix)
     ):
-        yield EventDevice(path)
+        yield path
 
 
 def aggregate_devices(type_name, name: str):
@@ -396,21 +432,4 @@ def aggregate_devices(type_name, name: str):
         )
         fake_device = None
 
-    # We don't aggregate devices from different sources to avoid
-    # duplicates.
-
-    devices_from_proc = list(list_devices_from_proc(type_name))
-    if devices_from_proc:
-        return AggregatedEventDevice(devices_from_proc, output=fake_device, virtual_name=name)
-
-    # breaks on mouse for virtualbox
-    # was getting /dev/input/by-id/usb-VirtualBox_USB_Tablet-event-mouse
-    devices_from_by_id = list(list_devices_from_by_id(type_name)) or list(
-        list_devices_from_by_id(type_name, by_id=False)
-    )
-    if devices_from_by_id:
-        return AggregatedEventDevice(devices_from_by_id, output=fake_device, virtual_name=name)
-
-    # If no keyboards were found we can only use the fake device to send keys.
-    assert fake_device
-    return fake_device
+    return AggregatedEventDevice(type_name, output=fake_device, virtual_name=name)
