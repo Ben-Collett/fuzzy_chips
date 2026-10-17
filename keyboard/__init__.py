@@ -1104,10 +1104,16 @@ def remap_hotkey(src, dst, suppress=True, trigger_on_release=False):
     )
 
 
-def stash_state():
+def stash_state(modifiers_only: bool = False):
     """
     Builds a list of all currently pressed scan codes, releases them and returns
     the list. Pairs well with `restore_state` and `restore_modifiers`.
+
+    With `modifiers_only`, only modifier keys are released. That is what
+    `write` wants: the only keys it must not fight with are the modifiers that
+    would change the characters it types. Releasing anything else is actively
+    harmful - the space the user is holding down is in `_pressed_events`, so
+    writing an expansion would release their space bar mid-press.
     """
     # TODO: stash caps lock / numlock /scrollock state.
 
@@ -1120,6 +1126,8 @@ def stash_state():
     else:
         with _pressed_events_lock:
             state = sorted(_pressed_events)
+    if modifiers_only:
+        state = [scan_code for scan_code in state if is_modifier(scan_code)]
     for scan_code in state:
         _get_os_keyboard().release(scan_code, False)
     return state
@@ -1147,8 +1155,23 @@ def restore_modifiers(scan_codes):
     """
     Like `restore_state`, but only restores modifier keys.
     """
-    restore_state(
-        (scan_code for scan_code in scan_codes if is_modifier(scan_code)))
+    modifiers = [
+        scan_code for scan_code in scan_codes if is_modifier(scan_code)]
+
+    if _platform.system() == "Windows":
+        # `restore_state` releases every key missing from its target list, and
+        # on Windows `_pressed_events` holds the keys the user is physically
+        # holding. Restoring only the stashed modifiers would therefore released
+        # on writes or more so they get released and then re-pressed
+        if not modifiers:
+            return
+        with _pressed_events_lock:
+            current = set(_pressed_events)
+        for scan_code in set(modifiers) - current:
+            _get_os_keyboard().press(scan_code)
+        return
+
+    restore_state(modifiers)
 
 
 def write_list(keys: list[str], delay=0):
@@ -1208,11 +1231,10 @@ def write(text, delay=0, restore_state_after=True, exact=None):
     if exact is None:
         exact = _platform.system() == "Windows"
 
-    state = stash_state()
+    state = stash_state(modifiers_only=_platform.system() == "Windows")
 
     # Window's typing of unicode characters is quite efficient and should be preferred.
     if exact:
-        print("this is exact")
         for letter in text:
             if letter in "\n\b":
                 send(letter)

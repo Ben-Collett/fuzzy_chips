@@ -47,7 +47,7 @@ from threading import Lock
 from collections import defaultdict
 
 from ._keyboard_event import KeyboardEvent, KEY_DOWN, KEY_UP
-from ._canonical_names import normalize_name
+from ._canonical_names import all_modifiers, normalize_name
 from ._windows_synthetic_modes import WindowsSyntheticModes
 
 synthetic_mode = WindowsSyntheticModes.FAKE
@@ -543,6 +543,109 @@ altgr_is_pressed = False
 ignore_next_right_alt = False
 shift_vks = set([0x10, 0xA0, 0xA1])
 
+# Modifiers physically held down right now. This mirrors the evdev backend's
+# `pressed_modifiers` so that `KeyboardEvent.modifiers` carries the same
+# meaning on Windows as it does on Linux/macOS/X11.
+modifiers_lock = Lock()
+pressed_modifiers = set()
+
+# Win32 spells the two halves of some modifiers inconsistently: the left key
+# resolves to the bare name ("Ctrl", "Alt") while the right one keeps its side
+# ("Right Ctrl"). `normalize_name` only maps "left menu" to "left alt", so the
+# remaining raw spellings are mapped here.
+_modifier_name_aliases = {
+    "right menu": "right alt",
+}
+
+# (scan code, virtual key code, is_extended) for every modifier key, used to
+# pick up modifiers that were already held when the hook got installed.
+_modifier_key_codes = (
+    (0x2A, 0xA0, 0),
+    (0x36, 0xA1, 0),
+    (0x10, 0x2A, 0),
+    (0x1D, 0xA2, 0),
+    (0x1D, 0xA3, 1),
+    (0x11, 0x1D, 0),
+    (0x38, 0xA4, 0),
+    (0x38, 0xA5, 1),
+    (0x12, 0x38, 0),
+    (0x5B, 0x5B, 1),
+    (0x5C, 0x5C, 1),
+)
+
+
+def _canonical_modifier_name(name):
+    """
+    Reduce a key name to the modifier it stands for in the unsided form
+    ("shift", "ctrl", "alt", "windows", "alt gr"), or None when `name` is not a
+    modifier.
+
+    Collapsing the sides keeps one physical modifier from being tracked as
+    both "shift" and "left shift", which would make `down_modifiers` report it
+    twice. Note that `alt gr` is kept as-is rather than expanded into
+    ctrl+alt; `down_modifiers` collapses it to "alt" either way.
+    """
+    if not name or not isinstance(name, str):
+        return None
+    name = normalize_name(name)
+    name = _modifier_name_aliases.get(name, name)
+    if name not in all_modifiers:
+        return None
+    for prefix in ("left ", "right "):
+        if name.startswith(prefix):
+            name = name[len(prefix):]
+            break
+    return name if name in all_modifiers else None
+
+
+def _snapshot_and_update_modifiers(name, event_type):
+    """
+    Return the modifiers held as of *before* this event, then fold the event
+    into `pressed_modifiers`.
+
+    The snapshot is taken first so that a modifier's own key down event does
+    not report itself as already held. The evdev backend orders it the same
+    way, and `down_modifiers` relies on that ordering to see the modifier
+    being pressed.
+    """
+    modifier = _canonical_modifier_name(name)
+    with modifiers_lock:
+        snapshot = tuple(sorted(pressed_modifiers))
+        if modifier is not None:
+            if event_type == KEY_DOWN:
+                pressed_modifiers.add(modifier)
+            else:
+                pressed_modifiers.discard(modifier)
+    return snapshot
+
+
+def _seed_pressed_modifiers():
+    """
+    Record modifiers that are already down, so that the first events received
+    are not reported as unmodified. The evdev backend does the same by reading
+    the keys currently held when `listen` starts.
+    """
+    for scan_code, vk, is_extended in _modifier_key_codes:
+        is_down = user32.GetAsyncKeyState(vk) & 0x8000
+        if not is_down:
+            continue
+
+        entry = (scan_code, vk, is_extended, ())
+
+        # can run before to_name is occupied
+        # so go ahead and cache the names if that happens
+        # this happens if user calls write before receiving
+        # any real key events
+        if entry not in to_name:
+            to_name[entry] = list(get_event_names(*entry))
+
+        names = to_name[entry]
+        modifier = _canonical_modifier_name(names[0] if names else None)
+        if modifier is not None:
+            with modifiers_lock:
+                pressed_modifiers.add(modifier)
+
+
 # set at the top of prepare_intercept only used for event injection when writing
 _event_callback = None
 
@@ -569,6 +672,7 @@ def prepare_intercept(callback):
     start_intercept).
     """
     _setup_name_tables()
+    _seed_pressed_modifiers()
 
     def process_key(event_type, vk, scan_code, is_extended):
         global shift_is_pressed, altgr_is_pressed, ignore_next_right_alt
@@ -599,6 +703,10 @@ def prepare_intercept(callback):
             ignore_next_right_alt = True
             altgr_is_pressed = event_type == KEY_DOWN
 
+        # Only the held modifiers; the lock states above pick the character the
+        # name resolves to and are deliberately not tracked as modifiers.
+        held_modifiers = _snapshot_and_update_modifiers(name, event_type)
+
         is_keypad = (scan_code, vk, is_extended) in keypad_keys
         return _dispatch_event(
             KeyboardEvent(
@@ -606,21 +714,25 @@ def prepare_intercept(callback):
                 scan_code=scan_code or -vk,
                 name=name,
                 is_keypad=is_keypad,
+                modifiers=held_modifiers,
             )
         )
 
     def low_level_keyboard_handler(nCode, wParam, lParam):
         try:
             vk = lParam.contents.vk_code
-            # Ignore the second `alt` DOWN observed in some cases.
-            fake_alt = LLKHF_INJECTED | 0x20
+            # LLKHF_INJECTED is set for anything that came out of keybd_event or
+            # SendInput, including our own. The old mask (LLKHF_INJECTED | 0x20)
+            # only matched injections coming from a lower integrity level, so
+            # same-integrity keybd_event events were *not* filtered: every
+            # backspace we sent arrived here AND through inject_event(), on two
+            # different threads and in no guaranteed order.
+            injected = bool(lParam.contents.flags & LLKHF_INJECTED)
             # Determine if this event should be ignored due to synthetic filtering
-            ignore_event = False
-            if synthetic_mode != WindowsSyntheticModes.REAL:
-                if vk != VK_PACKET and lParam.contents.flags & fake_alt != fake_alt:
-                    ignore_event = False  # normal processing
-                else:
-                    ignore_event = True  # skip this synthetic event
+            ignore_event = (
+                synthetic_mode != WindowsSyntheticModes.REAL
+                and (vk == VK_PACKET or injected)
+            )
 
             if not ignore_event:
                 event_type = KEY_UP if wParam & 0x01 else KEY_DOWN
@@ -696,12 +808,16 @@ def inject_event(event_type, scan_code=None, name=None, is_keypad=None):
     Injects a synthetic KeyboardEvent directly into listeners,
     bypassing Win32 hooks.
     """
+
+    held_modifiers = _snapshot_and_update_modifiers(name, event_type)
+
     event = KeyboardEvent(
         event_type=event_type,
         scan_code=scan_code or 0,
         name=name,
         is_keypad=is_keypad,
         device="synthetic",
+        modifiers=held_modifiers,
     )
     return _dispatch_event(event)
 
@@ -709,8 +825,8 @@ def inject_event(event_type, scan_code=None, name=None, is_keypad=None):
 BACKSPACE_CODE = 14
 
 
-def _should_inject(code):
-    return synthetic_mode == WindowsSyntheticModes.FAKE and code != BACKSPACE_CODE
+def _should_inject(code=None):
+    return synthetic_mode == WindowsSyntheticModes.FAKE
 
 
 def _inject(code, event_type):
@@ -735,10 +851,16 @@ def release(code, shiftpressed: bool = False, notify=True):
 
 
 def grab():
-    raise NotImplementedError("grab is not implemneted on windows it's only implemented on the Linux evdev backend")
+    raise NotImplementedError(
+        "grab is not implemneted on windows it's only implemented on the Linux evdev backend")
+
+
 def ungrab():
-    raise NotImplementedError("ungrab is not implemneted on windows it's only implemented on the Linux evdev backend")
-def is_grabbed()->bool:
+    raise NotImplementedError(
+        "ungrab is not implemneted on windows it's only implemented on the Linux evdev backend")
+
+
+def is_grabbed() -> bool:
     return False
 
 

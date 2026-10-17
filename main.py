@@ -1,4 +1,3 @@
-import time
 from constants import KEYBOARD_NAME
 from fuzzy_events import FuzzyEvent
 from casing import Casing, convert_casing
@@ -395,8 +394,6 @@ def _process_event(event: KeyboardEvent):
 
 
 def process_event_wrapper(event: KeyboardEvent):
-    # start = time.perf_counter()
-
     ctx = AppContext.get_current()
     grabbed = ctx.keyboard.grabbed()
     if grabbed and event.device_name != KEYBOARD_NAME:

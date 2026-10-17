@@ -36,7 +36,7 @@ def is_only_shift_or_no_modifiers(event: KeyboardEvent) -> bool:
 def down_modifiers(event: KeyboardEvent) -> list[str]:
     modifiers = event.modifiers
     if modifiers is None:
-        log_info("modifiers where none some how")
+        log_info("modifiers where none somehow")
         modifiers = []
 
     out = []

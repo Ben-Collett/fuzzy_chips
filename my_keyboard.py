@@ -24,7 +24,7 @@ class Keyboard:
 
         if t == LinuxKeyboardType.GRAB:
             keyboard.grab()
-        else:
+        elif keyboard.is_grabbed():#guards again windows and mac
             keyboard.ungrab()
 
     def write(self, s: str):
