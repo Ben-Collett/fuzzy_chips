@@ -43,7 +43,7 @@ from ctypes import (
 import ctypes
 import atexit
 import traceback
-from threading import Lock
+from threading import Condition, Lock, get_ident
 from collections import defaultdict
 
 from ._keyboard_event import KeyboardEvent, KEY_DOWN, KEY_UP
@@ -659,6 +659,57 @@ def _dispatch_event(event):
     return _event_callback(event)
 
 
+# TODO: this can probably be simplified by making some sort of dedicated class
+# that holds the three values
+
+# used to stop the program from injecting events that over take
+# actual hardware keypresses so they reach the application first
+# this revents a bug in fuzzychips where "th " was expanding to
+# "t at " instead of "that "
+_hook_release = Condition()
+_hook_events_in_flight = 0
+# thread identifier
+_hook_thread_ident = None
+
+
+def _enter_hook():
+    """
+    Called from the hook callback before it handles an event. Blocks
+    injections until the matching `_leave_hook`.
+    """
+    global _hook_thread_ident, _hook_events_in_flight
+    _hook_thread_ident = get_ident()
+    with _hook_release:
+        _hook_events_in_flight += 1
+
+
+def _leave_hook():
+    """
+    Called from the hook callback just before it returns to the OS, which is
+    when the event is handed over to the application.
+    """
+    global _hook_events_in_flight
+    with _hook_release:
+        _hook_events_in_flight -= 1
+        if _hook_events_in_flight == 0:
+            _hook_release.notify_all()
+
+
+def _wait_for_hook_release():
+    """
+    Block until the low-level hook has finished handing its current event to
+    the OS, so that injected events cannot overtake it.
+    """
+    with _hook_release:
+        while _hook_events_in_flight > 0:
+            if get_ident() == _hook_thread_ident:
+                # Called from inside the hook callback itself, which is how
+                # remapped and suppressed keys are turned into synthetic
+                # events. The callback cannot wait for its own return.
+                return
+            _hook_release.wait()
+
+
 def prepare_intercept(callback):
     global _event_callback
     _event_callback = callback
@@ -719,43 +770,52 @@ def prepare_intercept(callback):
         )
 
     def low_level_keyboard_handler(nCode, wParam, lParam):
+        # Physical events are only handed to the target application after this
+        # callback returns. Anything injected while it runs would reach the
+        # application before the event that triggered it, so keep the hook
+        # marked as in flight until the hand-off (see
+        # _wait_for_hook_release).
+        _enter_hook()
         try:
-            vk = lParam.contents.vk_code
-            # LLKHF_INJECTED is set for anything that came out of keybd_event or
-            # SendInput, including our own. The old mask (LLKHF_INJECTED | 0x20)
-            # only matched injections coming from a lower integrity level, so
-            # same-integrity keybd_event events were *not* filtered: every
-            # backspace we sent arrived here AND through inject_event(), on two
-            # different threads and in no guaranteed order.
-            injected = bool(lParam.contents.flags & LLKHF_INJECTED)
-            # Determine if this event should be ignored due to synthetic filtering
-            ignore_event = (
-                synthetic_mode != WindowsSyntheticModes.REAL
-                and (vk == VK_PACKET or injected)
-            )
+            try:
+                vk = lParam.contents.vk_code
+                # LLKHF_INJECTED is set for anything that came out of keybd_event or
+                # SendInput, including our own. The old mask (LLKHF_INJECTED | 0x20)
+                # only matched injections coming from a lower integrity level, so
+                # same-integrity keybd_event events were *not* filtered: every
+                # backspace we sent arrived here AND through inject_event(), on two
+                # different threads and in no guaranteed order.
+                injected = bool(lParam.contents.flags & LLKHF_INJECTED)
+                # Determine if this event should be ignored due to synthetic filtering
+                ignore_event = (
+                    synthetic_mode != WindowsSyntheticModes.REAL
+                    and (vk == VK_PACKET or injected)
+                )
 
-            if not ignore_event:
-                event_type = KEY_UP if wParam & 0x01 else KEY_DOWN
-                is_extended = lParam.contents.flags & 1
+                if not ignore_event:
+                    event_type = KEY_UP if wParam & 0x01 else KEY_DOWN
+                    is_extended = lParam.contents.flags & 1
 
-                if vk == VK_PACKET:
-                    # This is text input, not a key
-                    inject_event(
-                        event_type,
-                        name=chr(lParam.contents.scan_code),
-                    )
-                    return 0
-                scan_code = lParam.contents.scan_code
+                    if vk == VK_PACKET:
+                        # This is text input, not a key
+                        inject_event(
+                            event_type,
+                            name=chr(lParam.contents.scan_code),
+                        )
+                        return 0
+                    scan_code = lParam.contents.scan_code
 
-                should_continue = process_key(
-                    event_type, vk, scan_code, is_extended)
-                if not should_continue:
-                    return -1
-        except Exception:
-            print("Error in keyboard hook:")
-            traceback.print_exc()
+                    should_continue = process_key(
+                        event_type, vk, scan_code, is_extended)
+                    if not should_continue:
+                        return -1
+            except Exception:
+                print("Error in keyboard hook:")
+                traceback.print_exc()
 
-        return CallNextHookEx(None, nCode, wParam, lParam)
+            return CallNextHookEx(None, nCode, wParam, lParam)
+        finally:
+            _leave_hook()
 
     WH_KEYBOARD_LL = c_int(13)
     keyboard_callback = LowLevelKeyboardProc(low_level_keyboard_handler)
@@ -790,6 +850,8 @@ def map_name(name):
 
 
 def _send_event(code, event_type):
+    # Never overtake the physical event the hook is still handing off.
+    _wait_for_hook_release()
     if code == 541:
         # Alt-gr is made of ctrl+alt. Just sending even 541 doesn't do anything.
         user32.keybd_event(0x11, code, event_type, 0)
@@ -865,6 +927,8 @@ def is_grabbed() -> bool:
 
 
 def type_unicode(character, notify=True):
+    # Never overtake the physical event the hook is still handing off.
+    _wait_for_hook_release()
     surrogates = bytearray(character.encode("utf-16le"))
     presses = []
     releases = []
